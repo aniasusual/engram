@@ -1,0 +1,63 @@
+---
+source: tests/snapshot_parsing.rs
+expression: symbols
+---
+- kind: Class
+  line_end: 22
+  line_start: 6
+  name: ConfigService
+  scope_chain:
+    - ConfigService
+- kind: Function
+  line_end: 13
+  line_start: 10
+  name: ConfigService
+  scope_chain:
+    - ConfigService
+    - ConfigService
+- kind: Method
+  line_end: 17
+  line_start: 15
+  name: validate
+  scope_chain:
+    - ConfigService
+    - validate
+- kind: Method
+  line_end: 21
+  line_start: 19
+  name: getName
+  scope_chain:
+    - ConfigService
+    - getName
+- kind: Interface
+  line_end: 26
+  line_start: 24
+  name: Validator
+  scope_chain:
+    - Validator
+- kind: Method
+  line_end: 25
+  line_start: 25
+  name: validate
+  scope_chain:
+    - Validator
+    - validate
+- kind: Enum
+  line_end: 32
+  line_start: 28
+  name: Status
+  scope_chain:
+    - Status
+- kind: Class
+  line_end: 38
+  line_start: 34
+  name: AdvancedService
+  scope_chain:
+    - AdvancedService
+- kind: Function
+  line_end: 37
+  line_start: 35
+  name: AdvancedService
+  scope_chain:
+    - AdvancedService
+    - AdvancedService

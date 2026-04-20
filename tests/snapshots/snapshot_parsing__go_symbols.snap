@@ -1,0 +1,34 @@
+---
+source: tests/snapshot_parsing.rs
+expression: symbols
+---
+- kind: Module
+  line_end: 2
+  line_start: 2
+  name: sample
+  scope_chain:
+    - sample
+- kind: TypeAlias
+  line_end: 10
+  line_start: 7
+  name: Config
+  scope_chain:
+    - Config
+- kind: TypeAlias
+  line_end: 15
+  line_start: 13
+  name: Validator
+  scope_chain:
+    - Validator
+- kind: Method
+  line_end: 20
+  line_start: 18
+  name: Validate
+  scope_chain:
+    - Validate
+- kind: Function
+  line_end: 28
+  line_start: 23
+  name: ProcessConfig
+  scope_chain:
+    - ProcessConfig

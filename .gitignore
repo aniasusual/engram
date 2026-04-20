@@ -1,0 +1,6 @@
+/target
+.engram/
+.fastembed_cache/
+*.db
+*.db-wal
+*.db-shm

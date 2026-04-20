@@ -1,0 +1,87 @@
+---
+source: tests/snapshot_parsing.rs
+expression: symbols
+---
+- kind: Interface
+  line_end: 9
+  line_start: 7
+  name: Validator
+  scope_chain:
+    - Validator
+- kind: Interface
+  line_end: 14
+  line_start: 11
+  name: Config
+  scope_chain:
+    - Config
+- kind: Class
+  line_end: 30
+  line_start: 16
+  name: ConfigService
+  scope_chain:
+    - ConfigService
+- kind: Method
+  line_end: 21
+  line_start: 19
+  name: constructor
+  scope_chain:
+    - ConfigService
+    - constructor
+- kind: Method
+  line_end: 25
+  line_start: 23
+  name: validate
+  scope_chain:
+    - ConfigService
+    - validate
+- kind: Method
+  line_end: 29
+  line_start: 27
+  name: getName
+  scope_chain:
+    - ConfigService
+    - getName
+- kind: Enum
+  line_end: 36
+  line_start: 32
+  name: Status
+  scope_chain:
+    - Status
+- kind: TypeAlias
+  line_end: 41
+  line_start: 38
+  name: ConfigResult
+  scope_chain:
+    - ConfigResult
+- kind: Function
+  line_end: 52
+  line_start: 46
+  name: processConfig
+  scope_chain:
+    - processConfig
+- kind: Variable
+  line_end: 47
+  line_start: 47
+  name: service
+  scope_chain:
+    - processConfig
+    - service
+- kind: Variable
+  line_end: 54
+  line_start: 54
+  name: MAX_RETRIES
+  scope_chain:
+    - MAX_RETRIES
+- kind: Variable
+  line_end: 59
+  line_start: 56
+  name: fetchConfig
+  scope_chain:
+    - fetchConfig
+- kind: Variable
+  line_end: 57
+  line_start: 57
+  name: data
+  scope_chain:
+    - fetchConfig
+    - data

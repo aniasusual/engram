@@ -1,0 +1,46 @@
+---
+source: tests/snapshot_parsing.rs
+expression: symbols
+---
+- has_docstring: true
+  kind: Struct
+  line_end: 5
+  line_start: 2
+  name: Config
+  scope_chain:
+    - Config
+- has_docstring: false
+  kind: Trait
+  line_end: 9
+  line_start: 7
+  name: Validator
+  scope_chain:
+    - Validator
+- has_docstring: false
+  kind: Function
+  line_end: 14
+  line_start: 12
+  name: validate
+  scope_chain:
+    - validate
+- has_docstring: false
+  kind: Enum
+  line_end: 21
+  line_start: 17
+  name: Status
+  scope_chain:
+    - Status
+- has_docstring: true
+  kind: Function
+  line_end: 30
+  line_start: 24
+  name: process_config
+  scope_chain:
+    - process_config
+- has_docstring: false
+  kind: Constant
+  line_end: 32
+  line_start: 32
+  name: MAX_RETRIES
+  scope_chain:
+    - MAX_RETRIES

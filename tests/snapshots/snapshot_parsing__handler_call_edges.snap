@@ -1,0 +1,6 @@
+---
+source: tests/snapshot_parsing.rs
+expression: edges
+---
+- confidence: 1
+  kind: CALLS

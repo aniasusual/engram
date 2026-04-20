@@ -1,0 +1,57 @@
+---
+source: tests/snapshot_parsing.rs
+expression: symbols
+---
+- has_docstring: true
+  kind: Class
+  line_end: 16
+  line_start: 7
+  name: Config
+  scope_chain:
+    - Config
+- has_docstring: false
+  kind: Function
+  line_end: 12
+  line_start: 10
+  name: __init__
+  scope_chain:
+    - Config
+    - __init__
+- has_docstring: true
+  kind: Function
+  line_end: 16
+  line_start: 14
+  name: validate
+  scope_chain:
+    - Config
+    - validate
+- has_docstring: true
+  kind: Class
+  line_end: 28
+  line_start: 19
+  name: AdvancedConfig
+  scope_chain:
+    - AdvancedConfig
+- has_docstring: false
+  kind: Function
+  line_end: 24
+  line_start: 22
+  name: __init__
+  scope_chain:
+    - AdvancedConfig
+    - __init__
+- has_docstring: true
+  kind: Function
+  line_end: 28
+  line_start: 26
+  name: validate
+  scope_chain:
+    - AdvancedConfig
+    - validate
+- has_docstring: true
+  kind: Function
+  line_end: 35
+  line_start: 31
+  name: process_config
+  scope_chain:
+    - process_config
