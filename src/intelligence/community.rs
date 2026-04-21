@@ -169,7 +169,7 @@ pub fn detect_communities(store: &Store) -> Result<Vec<Community>> {
     }
 
     // Sort by size descending
-    communities.sort_by(|a, b| b.symbol_ids.len().cmp(&a.symbol_ids.len()));
+    communities.sort_by_key(|c| std::cmp::Reverse(c.symbol_ids.len()));
 
     // Re-number IDs
     for (i, comm) in communities.iter_mut().enumerate() {
@@ -200,7 +200,7 @@ fn file_based_communities(symbols: &[crate::graph::SymbolRow]) -> Result<Vec<Com
         })
         .collect();
 
-    communities.sort_by(|a, b| b.symbol_ids.len().cmp(&a.symbol_ids.len()));
+    communities.sort_by_key(|c| std::cmp::Reverse(c.symbol_ids.len()));
     Ok(communities)
 }
 

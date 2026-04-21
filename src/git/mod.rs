@@ -164,7 +164,7 @@ pub fn compute_ownership(blame_lines: &[BlameLine]) -> Vec<OwnershipEntry> {
     }
 
     let mut result: Vec<OwnershipEntry> = ownership.into_values().collect();
-    result.sort_by(|a, b| b.commits.cmp(&a.commits));
+    result.sort_by_key(|e| std::cmp::Reverse(e.commits));
     result
 }
 

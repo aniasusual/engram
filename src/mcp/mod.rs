@@ -587,7 +587,7 @@ impl EngramMcp {
                 })
                 .filter(|(_, count)| *count > 0)
                 .collect();
-            sym_callers.sort_by(|a, b| b.1.cmp(&a.1));
+            sym_callers.sort_by_key(|e| std::cmp::Reverse(e.1));
 
             if !sym_callers.is_empty() {
                 output.push_str("Most-called symbols (god nodes):\n");
