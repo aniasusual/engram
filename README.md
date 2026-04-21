@@ -1,5 +1,8 @@
 # Engram
 
+[![CI](https://github.com/animeshdhillon/engram/actions/workflows/ci.yml/badge.svg)](https://github.com/animeshdhillon/engram/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > **engram** (/ˈɛnɡræm/) — a hypothetical permanent change in the brain accounting for the existence of memory; a memory trace.
 
 **Persistent codebase intelligence for coding agents.** A single 16MB binary that gives AI agents structural understanding, semantic search, temporal awareness, and self-healing memory — with zero dependencies and no API keys.
