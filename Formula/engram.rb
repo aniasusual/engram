@@ -1,8 +1,8 @@
 class Engram < Formula
   desc "Persistent codebase intelligence daemon for coding agents"
-  homepage "https://github.com/animeshdhillon/engram"
+  homepage "https://github.com/aniasusual/engram"
   license "MIT"
-  head "https://github.com/animeshdhillon/engram.git", branch: "main"
+  head "https://github.com/aniasusual/engram.git", branch: "main"
 
   depends_on "rust" => :build
 

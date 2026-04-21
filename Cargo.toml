@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 description = "Persistent codebase intelligence daemon for coding agents"
 license = "MIT"
+repository = "https://github.com/aniasusual/engram"
+homepage = "https://github.com/aniasusual/engram"
+keywords = ["mcp", "coding-agents", "memory", "code-intelligence", "tree-sitter"]
+categories = ["development-tools", "command-line-utilities"]
 
 [[bin]]
 name = "engram"

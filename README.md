@@ -1,6 +1,6 @@
 # Engram
 
-[![CI](https://github.com/animeshdhillon/engram/actions/workflows/ci.yml/badge.svg)](https://github.com/animeshdhillon/engram/actions/workflows/ci.yml)
+[![CI](https://github.com/aniasusual/engram/actions/workflows/ci.yml/badge.svg)](https://github.com/aniasusual/engram/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **engram** (/ˈɛnɡræm/) — a hypothetical permanent change in the brain accounting for the existence of memory; a memory trace.
@@ -65,7 +65,7 @@ Engram uses a general-purpose English embedding model. The `Embedder` trait is p
 ### Build from source
 
 ```bash
-git clone https://github.com/yourusername/engram.git
+git clone https://github.com/aniasusual/engram.git
 cd engram
 cargo build --release
 # Binary at target/release/engram (16MB)

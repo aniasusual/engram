@@ -6,7 +6,7 @@ set -e
 ENGRAM_BIN=$(which engram 2>/dev/null || echo "")
 if [ -z "$ENGRAM_BIN" ]; then
     echo "Error: engram not found in PATH. Install it first:"
-    echo "  cargo install --git https://github.com/animeshdhillon/engram"
+    echo "  cargo install --git https://github.com/aniasusual/engram"
     exit 1
 fi
 
