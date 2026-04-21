@@ -47,6 +47,22 @@ enum Command {
         #[arg(long, default_value = ".")]
         root: PathBuf,
     },
+    /// Get brief context for a file (used by Claude Code hooks)
+    ContextForFile {
+        /// File path (relative to root)
+        #[arg(long)]
+        file: String,
+        /// Brief mode (one line) or full mode
+        #[arg(long, default_value = "true")]
+        brief: bool,
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
+    /// Install Engram as a Claude Code skill
+    InstallSkill {
+        #[arg(long, default_value = ".")]
+        root: PathBuf,
+    },
     /// Install Claude Code hooks
     InstallHooks {
         #[arg(long, default_value = ".")]
@@ -228,6 +244,103 @@ impl Cli {
                 }
                 let store = std::sync::Arc::new(crate::graph::Store::open(&db_path)?);
                 crate::mcp::run_mcp_server(store, root).await?;
+                Ok(())
+            }
+            Command::ContextForFile {
+                file,
+                brief: _,
+                root,
+            } => {
+                let root = std::fs::canonicalize(&root)?;
+                let db_path = root.join(".engram/engram.db");
+                if !db_path.exists() {
+                    // Silent — hooks should not crash the agent
+                    return Ok(());
+                }
+                let store = crate::graph::Store::open(&db_path)?;
+
+                // Find symbols in this file (try exact match, then suffix match)
+                let mut symbols = store.get_file_symbols(&file)?;
+                if symbols.is_empty() {
+                    // Try matching by filename suffix (handles absolute vs relative paths)
+                    let all = store.get_all_symbols()?;
+                    symbols = all
+                        .into_iter()
+                        .filter(|s| s.file.ends_with(&file) || file.ends_with(&s.file))
+                        .collect();
+                }
+                if symbols.is_empty() {
+                    return Ok(());
+                }
+
+                // Build a one-line summary per file
+                let total_callers: usize = symbols
+                    .iter()
+                    .filter_map(|s| store.get_direct_callers(&s.id).ok())
+                    .map(|c| c.len())
+                    .sum();
+
+                let max_risk: f64 = symbols
+                    .iter()
+                    .filter_map(|s| store.get_risk_score(&s.id).ok())
+                    .fold(0.0f64, f64::max);
+
+                let stale_count: usize = symbols
+                    .iter()
+                    .filter_map(|s| store.get_annotations(&s.id).ok())
+                    .flat_map(|anns| anns.into_iter())
+                    .filter(|(_, _, _, _, status)| status == "stale")
+                    .count();
+
+                let top_symbols: Vec<String> = symbols
+                    .iter()
+                    .take(3)
+                    .map(|s| format!("{} {}", s.kind, s.name))
+                    .collect();
+
+                let mut line = format!(
+                    "[engram] {} — {} symbols, {} callers, risk={:.0}",
+                    file,
+                    symbols.len(),
+                    total_callers,
+                    max_risk
+                );
+
+                if stale_count > 0 {
+                    line.push_str(&format!(", {} stale annotations", stale_count));
+                }
+
+                line.push_str(&format!(" | top: {}", top_symbols.join(", ")));
+
+                println!("{}", line);
+                Ok(())
+            }
+            Command::InstallSkill { root: _ } => {
+
+                // Find the skill file bundled with the binary
+                let skill_content = include_str!("../../skills/engram/SKILL.md");
+
+                // Install to ~/.claude/skills/engram/
+                let home = std::env::var("HOME")
+                    .or_else(|_| std::env::var("USERPROFILE"))
+                    .unwrap_or_else(|_| ".".to_string());
+                let skill_dir = std::path::PathBuf::from(&home).join(".claude/skills/engram");
+                std::fs::create_dir_all(&skill_dir)?;
+                std::fs::write(skill_dir.join("SKILL.md"), skill_content)?;
+
+                // Register in ~/.claude/CLAUDE.md
+                let claude_md_path = std::path::PathBuf::from(&home).join(".claude/CLAUDE.md");
+                let existing = std::fs::read_to_string(&claude_md_path).unwrap_or_default();
+                if !existing.contains("/engram") {
+                    let registration = "\n\n## Engram\nWhen the user types `/engram`, invoke the Skill tool with `skill: \"engram\"` before doing anything else.\n";
+                    let mut content = existing;
+                    content.push_str(registration);
+                    std::fs::write(&claude_md_path, content)?;
+                }
+
+                println!("Engram skill installed at {}", skill_dir.display());
+                println!("Registered in ~/.claude/CLAUDE.md");
+                println!("Use /engram in Claude Code to get started.");
                 Ok(())
             }
             Command::InstallHooks { root } => {
