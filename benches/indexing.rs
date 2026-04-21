@@ -1,21 +1,19 @@
-use criterion::{criterion_group, criterion_main, Criterion, BatchSize};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use std::path::Path;
 
 fn bench_parse_rust_file(c: &mut Criterion) {
-    let source = std::fs::read_to_string("tests/fixtures/simple/auth.rs")
-        .expect("fixture not found");
+    let source =
+        std::fs::read_to_string("tests/fixtures/simple/auth.rs").expect("fixture not found");
     let parser = engram::parser::CodeParser::new();
 
     c.bench_function("parse_single_rust_file", |b| {
-        b.iter(|| {
-            parser.parse_source(&source, "rust", "auth.rs").unwrap()
-        })
+        b.iter(|| parser.parse_source(&source, "rust", "auth.rs").unwrap())
     });
 }
 
 fn bench_sync_file(c: &mut Criterion) {
-    let source = std::fs::read_to_string("tests/fixtures/simple/auth.rs")
-        .expect("fixture not found");
+    let source =
+        std::fs::read_to_string("tests/fixtures/simple/auth.rs").expect("fixture not found");
     let parser = engram::parser::CodeParser::new();
     let result = parser.parse_source(&source, "rust", "auth.rs").unwrap();
 
@@ -26,9 +24,7 @@ fn bench_sync_file(c: &mut Criterion) {
                 store.initialize().unwrap();
                 store
             },
-            |store| {
-                store.sync_file(Path::new("auth.rs"), &result).unwrap()
-            },
+            |store| store.sync_file(Path::new("auth.rs"), &result).unwrap(),
             BatchSize::SmallInput,
         )
     });
@@ -58,11 +54,15 @@ impl AuthService {
     pub fn revoke_token(&self, _token: &str) -> bool { true }
 }
 "#;
-    let modified_result = parser.parse_source(modified_source, "rust", "auth.rs").unwrap();
+    let modified_result = parser
+        .parse_source(modified_source, "rust", "auth.rs")
+        .unwrap();
 
     c.bench_function("incremental_single_file_change", |b| {
         b.iter(|| {
-            store.sync_file(Path::new("auth.rs"), &modified_result).unwrap()
+            store
+                .sync_file(Path::new("auth.rs"), &modified_result)
+                .unwrap()
         })
     });
 }
@@ -132,7 +132,8 @@ fn bench_index_200_files(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_parse_rust_file,
     bench_sync_file,
     bench_incremental_update,

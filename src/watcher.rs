@@ -24,8 +24,7 @@ pub async fn watch_and_sync(root: PathBuf, store: Arc<Store>) -> Result<()> {
         let mut last_event = std::time::Instant::now();
 
         let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-        let mut watcher =
-            notify::recommended_watcher(notify_tx).expect("failed to create watcher");
+        let mut watcher = notify::recommended_watcher(notify_tx).expect("failed to create watcher");
 
         watcher
             .watch(&root_for_watcher, RecursiveMode::Recursive)
@@ -51,7 +50,7 @@ pub async fn watch_and_sync(root: PathBuf, store: Arc<Store>) -> Result<()> {
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if !pending.is_empty() && last_event.elapsed() >= DEBOUNCE_DURATION {
-                        let batch: Vec<PathBuf> = pending.drain(..).collect();
+                        let batch: Vec<PathBuf> = std::mem::take(&mut pending);
                         if tx.blocking_send(batch).is_err() {
                             break;
                         }
@@ -67,8 +66,7 @@ pub async fn watch_and_sync(root: PathBuf, store: Arc<Store>) -> Result<()> {
 
     // Process debounced events
     while let Some(changed_files) = rx.recv().await {
-        let unique_files: std::collections::HashSet<PathBuf> =
-            changed_files.into_iter().collect();
+        let unique_files: std::collections::HashSet<PathBuf> = changed_files.into_iter().collect();
 
         let mut changed_file_strs: Vec<String> = Vec::new();
         let mut deleted_file_strs: Vec<String> = Vec::new();
@@ -97,7 +95,9 @@ pub async fn watch_and_sync(root: PathBuf, store: Arc<Store>) -> Result<()> {
                             match crate::memory::cascade::cascade_file(&store, &rel_str) {
                                 Ok(results) => {
                                     for r in &results {
-                                        if r.direct_stale_count > 0 || r.transitive_affected_count > 0 {
+                                        if r.direct_stale_count > 0
+                                            || r.transitive_affected_count > 0
+                                        {
                                             tracing::info!(
                                                 "Cascade: {} stale, {} transitive for {}",
                                                 r.direct_stale_count,

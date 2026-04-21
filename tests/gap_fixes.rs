@@ -23,7 +23,14 @@ fn setup_full_fixture() -> (Arc<Store>, EngramMcp) {
     let root = PathBuf::from("tests/fixtures/simple");
 
     // Index all simple fixtures (code + markdown)
-    let files = ["auth.rs", "db.rs", "handler.rs", "utils.rs", "main.rs", "README.md"];
+    let files = [
+        "auth.rs",
+        "db.rs",
+        "handler.rs",
+        "utils.rs",
+        "main.rs",
+        "README.md",
+    ];
 
     for file_name in &files {
         let full_path = root.join(file_name);
@@ -103,12 +110,14 @@ fn deep_tier_shows_annotations_inline() {
     assert!(!syms.is_empty());
 
     // Create an annotation first
-    store.create_annotation(
-        &syms[0].id,
-        "warning",
-        "This function does not validate token expiration",
-        &syms[0].full_hash,
-    ).unwrap();
+    store
+        .create_annotation(
+            &syms[0].id,
+            "warning",
+            "This function does not validate token expiration",
+            &syms[0].full_hash,
+        )
+        .unwrap();
 
     let deep = mcp.format_context_pub(&syms[0], "deep");
 
@@ -165,7 +174,9 @@ fn markdown_headings_extracted_as_symbols() {
 
     let names: Vec<&str> = md_symbols.iter().map(|s| s.name.as_str()).collect();
     assert!(
-        names.iter().any(|n| n.contains("Architecture") || n.contains("Simple")),
+        names
+            .iter()
+            .any(|n| n.contains("Architecture") || n.contains("Simple")),
         "should extract heading names: {:?}",
         names
     );
@@ -184,7 +195,10 @@ fn markdown_content_searchable_via_bm25() {
 
     // Verify the result is from the markdown file
     let found_md = results.iter().any(|(id, _)| {
-        store.get_symbol(id).ok().flatten()
+        store
+            .get_symbol(id)
+            .ok()
+            .flatten()
             .map(|s| s.file.contains("README") || s.language == "markdown")
             .unwrap_or(false)
     });
@@ -199,7 +213,8 @@ fn markdown_and_code_searched_together() {
     let results = store.search_bm25("validate_token", 10).unwrap();
     assert!(!results.is_empty(), "should find validate_token");
 
-    let result_files: Vec<String> = results.iter()
+    let result_files: Vec<String> = results
+        .iter()
         .filter_map(|(id, _)| store.get_symbol(id).ok().flatten().map(|s| s.file.clone()))
         .collect();
 
@@ -217,7 +232,10 @@ fn markdown_search_authentication_flow() {
 
     // "Authentication Flow" is a heading in README.md
     let results = store.search_bm25("Authentication Flow", 10).unwrap();
-    assert!(!results.is_empty(), "should find 'Authentication Flow' heading");
+    assert!(
+        !results.is_empty(),
+        "should find 'Authentication Flow' heading"
+    );
 }
 
 #[test]
@@ -225,7 +243,11 @@ fn markdown_file_counted_in_stats() {
     let (store, _mcp) = setup_full_fixture();
 
     let stats = store.stats().unwrap();
-    assert!(stats.file_count >= 6, "should count README.md as a file (got {} files)", stats.file_count);
+    assert!(
+        stats.file_count >= 6,
+        "should count README.md as a file (got {} files)",
+        stats.file_count
+    );
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -317,7 +339,9 @@ DATABASE_URL = "postgresql://localhost:5432/mydb"
 def connect():
     pass
 "#;
-    let result = parser.parse_source(source, "python", "settings.py").unwrap();
+    let result = parser
+        .parse_source(source, "python", "settings.py")
+        .unwrap();
     store.sync_file(Path::new("settings.py"), &result).unwrap();
 
     let results = store.search_bm25("postgresql", 5).unwrap();
@@ -353,12 +377,14 @@ fn e2e_agent_workflow_with_gaps_fixed() {
     );
 
     // Step 4: Agent annotates with a finding
-    let ann_id = store.create_annotation(
-        &syms[0].id,
-        "warning",
-        "Does not check token expiration timestamp",
-        &syms[0].full_hash,
-    ).unwrap();
+    let ann_id = store
+        .create_annotation(
+            &syms[0].id,
+            "warning",
+            "Does not check token expiration timestamp",
+            &syms[0].full_hash,
+        )
+        .unwrap();
     assert!(ann_id > 0, "Step 4 FAIL: annotation should be created");
 
     // Step 5: Agent re-reads with deep tier — annotation visible inline
@@ -371,7 +397,10 @@ fn e2e_agent_workflow_with_gaps_fixed() {
     // Step 6: Agent searches for config values (was impossible — values not in FTS)
     // The README mentions "localhost:5432" — should be searchable
     let config_results = store.search_bm25("localhost", 5).unwrap();
-    println!("Step 6: 'localhost' search returned {} results", config_results.len());
+    println!(
+        "Step 6: 'localhost' search returned {} results",
+        config_results.len()
+    );
 
     println!("\nAll 6 steps passed — agent workflow with gap fixes verified.");
 }
@@ -398,7 +427,9 @@ fn e2e_code_and_docs_unified_search() {
 
     println!(
         "Search 'authentication': {} results, from_code={}, from_docs={}",
-        results.len(), from_code, from_docs
+        results.len(),
+        from_code,
+        from_docs
     );
 
     // At minimum, should find something (either code symbols mentioning auth, or README)

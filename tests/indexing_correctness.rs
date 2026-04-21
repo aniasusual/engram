@@ -43,18 +43,39 @@ fn full_index_equals_incremental() {
     }
     let stats2 = store2.stats().unwrap();
 
-    assert_eq!(stats1.symbol_count, stats2.symbol_count,
-        "symbol count should match: bulk={} vs incremental={}", stats1.symbol_count, stats2.symbol_count);
-    assert_eq!(stats1.edge_count, stats2.edge_count,
-        "edge count should match: bulk={} vs incremental={}", stats1.edge_count, stats2.edge_count);
-    assert_eq!(stats1.file_count, stats2.file_count,
-        "file count should match: bulk={} vs incremental={}", stats1.file_count, stats2.file_count);
+    assert_eq!(
+        stats1.symbol_count, stats2.symbol_count,
+        "symbol count should match: bulk={} vs incremental={}",
+        stats1.symbol_count, stats2.symbol_count
+    );
+    assert_eq!(
+        stats1.edge_count, stats2.edge_count,
+        "edge count should match: bulk={} vs incremental={}",
+        stats1.edge_count, stats2.edge_count
+    );
+    assert_eq!(
+        stats1.file_count, stats2.file_count,
+        "file count should match: bulk={} vs incremental={}",
+        stats1.file_count, stats2.file_count
+    );
 
     // Verify same symbols exist by name
-    let names1: Vec<String> = store1.get_all_symbols().unwrap().iter().map(|s| s.name.clone()).collect();
-    let names2: Vec<String> = store2.get_all_symbols().unwrap().iter().map(|s| s.name.clone()).collect();
-    let mut sorted1 = names1.clone(); sorted1.sort();
-    let mut sorted2 = names2.clone(); sorted2.sort();
+    let names1: Vec<String> = store1
+        .get_all_symbols()
+        .unwrap()
+        .iter()
+        .map(|s| s.name.clone())
+        .collect();
+    let names2: Vec<String> = store2
+        .get_all_symbols()
+        .unwrap()
+        .iter()
+        .map(|s| s.name.clone())
+        .collect();
+    let mut sorted1 = names1.clone();
+    sorted1.sort();
+    let mut sorted2 = names2.clone();
+    sorted2.sort();
     assert_eq!(sorted1, sorted2, "same symbol names in both stores");
 }
 
@@ -89,7 +110,10 @@ fn edit_only_reindexes_changed() {
     assert!(b_changed, "edited file should trigger re-index");
 
     let new_count = store.stats().unwrap().symbol_count;
-    assert_eq!(new_count, 3, "should have 3 symbols after adding new_function");
+    assert_eq!(
+        new_count, 3,
+        "should have 3 symbols after adding new_function"
+    );
 
     // Verify the new function exists
     let new_fn = store.find_symbol_by_name("new_function").unwrap();
@@ -121,20 +145,36 @@ fn delete_removes_symbols_and_edges() {
     // Create an annotation on callee
     let callee_sym = store.find_symbol_by_name("callee").unwrap();
     assert!(!callee_sym.is_empty());
-    store.create_annotation(
-        &callee_sym[0].id, "explanation", "callee returns true", &callee_sym[0].full_hash
-    ).unwrap();
+    store
+        .create_annotation(
+            &callee_sym[0].id,
+            "explanation",
+            "callee returns true",
+            &callee_sym[0].full_hash,
+        )
+        .unwrap();
 
     // "Delete" b.rs by garbage collecting it
     let removed = store.garbage_collect(&["a.rs"]).unwrap();
     assert_eq!(removed, 1, "should remove 1 file");
 
     // Verify callee is gone
-    assert_eq!(store.stats().unwrap().symbol_count, 1, "only caller should remain");
-    assert_eq!(store.stats().unwrap().file_count, 1, "only a.rs should remain");
+    assert_eq!(
+        store.stats().unwrap().symbol_count,
+        1,
+        "only caller should remain"
+    );
+    assert_eq!(
+        store.stats().unwrap().file_count,
+        1,
+        "only a.rs should remain"
+    );
 
     let callee_after = store.find_symbol_by_name("callee").unwrap();
-    assert!(callee_after.is_empty(), "callee should be removed from store");
+    assert!(
+        callee_after.is_empty(),
+        "callee should be removed from store"
+    );
 
     // Caller should still exist
     let caller_after = store.find_symbol_by_name("caller").unwrap();
@@ -158,9 +198,14 @@ fn rename_preserves_annotations_via_canonical_id() {
     let canonical_before = sym_before[0].canonical_id.clone();
 
     // Create annotation
-    let ann_id = store.create_annotation(
-        &sym_before[0].id, "explanation", "this function is critical", &sym_before[0].full_hash
-    ).unwrap();
+    let ann_id = store
+        .create_annotation(
+            &sym_before[0].id,
+            "explanation",
+            "this function is critical",
+            &sym_before[0].full_hash,
+        )
+        .unwrap();
     assert!(ann_id > 0);
 
     // "Rename" by indexing the same code in b.rs and removing a.rs
@@ -174,8 +219,11 @@ fn rename_preserves_annotations_via_canonical_id() {
     let canonical_after = sym_after[0].canonical_id.clone();
 
     // canonical_id should be the same (same name + kind + body_hash)
-    assert_eq!(canonical_before, canonical_after,
-        "canonical_id should survive rename: before={} after={}", canonical_before, canonical_after);
+    assert_eq!(
+        canonical_before, canonical_after,
+        "canonical_id should survive rename: before={} after={}",
+        canonical_before, canonical_after
+    );
 
     // The annotation is on the OLD symbol ID (a.rs version), not the new one (b.rs).
     // But the canonical_id link means we can find it.

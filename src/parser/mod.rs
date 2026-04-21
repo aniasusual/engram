@@ -7,7 +7,7 @@ pub use treesitter::{CodeParser, ParseResult};
 
 // Re-exported for tests and benchmarks
 #[allow(unused_imports)]
-pub use treesitter::{Symbol, Edge, SymbolKind, EdgeKind};
+pub use treesitter::{Edge, EdgeKind, Symbol, SymbolKind};
 
 use anyhow::Result;
 use ignore::WalkBuilder;
@@ -68,10 +68,10 @@ pub fn discover_files(root: &Path) -> Result<Vec<PathBuf>> {
         .build()
     {
         let entry = entry?;
-        if entry.file_type().is_some_and(|ft| ft.is_file()) {
-            if detect_language(entry.path()).is_some() {
-                files.push(entry.into_path());
-            }
+        if entry.file_type().is_some_and(|ft| ft.is_file())
+            && detect_language(entry.path()).is_some()
+        {
+            files.push(entry.into_path());
         }
     }
     Ok(files)

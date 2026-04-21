@@ -39,7 +39,7 @@ pub fn find_exact_clones(store: &Store) -> Result<Vec<ClonePair>> {
     }
 
     let mut clones = Vec::new();
-    for (_hash, members) in &by_hash {
+    for members in by_hash.values() {
         if members.len() < 2 {
             continue;
         }
@@ -79,28 +79,33 @@ pub fn find_near_clones(store: &Store, threshold: f64) -> Result<Vec<ClonePair>>
                 // Check they're in different files
                 let sym_a = store.get_symbol(&embeddings[i].0)?;
                 let sym_b = store.get_symbol(&embeddings[j].0)?;
-                if let (Some(a), Some(b)) = (sym_a, sym_b) {
-                    if a.file != b.file {
-                        clones.push(ClonePair {
-                            symbol_a_id: embeddings[i].0.clone(),
-                            symbol_b_id: embeddings[j].0.clone(),
-                            similarity: sim,
-                            clone_type: CloneType::Near,
-                        });
-                    }
+                if let (Some(a), Some(b)) = (sym_a, sym_b)
+                    && a.file != b.file
+                {
+                    clones.push(ClonePair {
+                        symbol_a_id: embeddings[i].0.clone(),
+                        symbol_b_id: embeddings[j].0.clone(),
+                        similarity: sim,
+                        clone_type: CloneType::Near,
+                    });
                 }
             }
         }
     }
 
     // Sort by similarity descending
-    clones.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+    clones.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     Ok(clones)
 }
 
 /// Find symbols similar to a given symbol.
 pub fn find_similar_to(store: &Store, symbol_id: &str, top_k: usize) -> Result<Vec<ClonePair>> {
-    let target_sym = store.get_symbol(symbol_id)?
+    let target_sym = store
+        .get_symbol(symbol_id)?
         .ok_or_else(|| anyhow::anyhow!("symbol not found"))?;
 
     let all_symbols = store.get_all_symbols()?;
@@ -122,7 +127,8 @@ pub fn find_similar_to(store: &Store, symbol_id: &str, top_k: usize) -> Result<V
     }
 
     // If we have embeddings, also find near-clones
-    let target_embedding = store.get_all_embeddings()?
+    let target_embedding = store
+        .get_all_embeddings()?
         .into_iter()
         .find(|(id, _)| id == symbol_id);
 
@@ -148,7 +154,11 @@ pub fn find_similar_to(store: &Store, symbol_id: &str, top_k: usize) -> Result<V
         }
     }
 
-    results.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.similarity
+            .partial_cmp(&a.similarity)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(top_k);
     Ok(results)
 }
@@ -173,10 +183,7 @@ mod tests {
         store.sync_file(Path::new("b.rs"), &r2).unwrap();
 
         let clones = find_exact_clones(&store).unwrap();
-        assert!(
-            !clones.is_empty(),
-            "should find exact clone across files"
-        );
+        assert!(!clones.is_empty(), "should find exact clone across files");
         assert!(matches!(clones[0].clone_type, CloneType::Exact));
         assert!((clones[0].similarity - 1.0).abs() < 1e-6);
     }

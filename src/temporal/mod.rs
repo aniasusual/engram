@@ -12,10 +12,7 @@ use crate::parser::{CodeParser, ParseResult};
 pub fn track_evolution(store: &Store, file: &str, new_result: &ParseResult) -> Result<()> {
     // Get old symbols for this file
     let old_symbols = store.get_file_symbols(file)?;
-    let old_by_name: HashMap<String, _> = old_symbols
-        .iter()
-        .map(|s| (s.name.clone(), s))
-        .collect();
+    let old_by_name: HashMap<String, _> = old_symbols.iter().map(|s| (s.name.clone(), s)).collect();
 
     let new_by_name: HashMap<String, _> = new_result
         .symbols

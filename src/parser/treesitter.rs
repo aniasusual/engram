@@ -142,6 +142,12 @@ fn make_full_hash(signature: &str, body: &str, docstring: Option<&str>) -> Strin
 
 pub struct CodeParser;
 
+impl Default for CodeParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodeParser {
     pub fn new() -> Self {
         Self
@@ -198,13 +204,9 @@ impl CodeParser {
         let mut matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
 
         while let Some(m) = matches.next() {
-            if let Some(sym) = self.extract_symbol_from_match(
-                &query,
-                &m,
-                source,
-                file_path,
-                language_name,
-            ) {
+            if let Some(sym) =
+                self.extract_symbol_from_match(&query, m, source, file_path, language_name)
+            {
                 raw_symbols.push(sym);
             }
         }
@@ -216,7 +218,16 @@ impl CodeParser {
         self.extract_call_edges(source, &tree, &raw_symbols, file_path, &mut edges);
 
         // Extract inheritance/implementation edges
-        self.extract_inheritance_edges(&query, &mut cursor, &tree, source, &raw_symbols, file_path, language_name, &mut edges);
+        self.extract_inheritance_edges(
+            &query,
+            &mut cursor,
+            &tree,
+            source,
+            &raw_symbols,
+            file_path,
+            language_name,
+            &mut edges,
+        );
 
         Ok(ParseResult {
             symbols: raw_symbols,
@@ -236,7 +247,7 @@ impl CodeParser {
         let capture_names: Vec<_> = m
             .captures
             .iter()
-            .map(|c| (query.capture_names()[c.index as usize].as_ref(), c.node))
+            .map(|c| (query.capture_names()[c.index as usize], c.node))
             .collect();
 
         // Determine symbol kind from capture names
@@ -278,7 +289,7 @@ impl CodeParser {
             docstring,
             body_hash,
             full_hash,
-            body: body,
+            body,
             language: language.to_string(),
             scope_chain: vec![],
             parent_id: None,
@@ -287,9 +298,13 @@ impl CodeParser {
 
     fn classify_captures<'a>(
         &self,
-        captures: &[(& str, tree_sitter::Node<'a>)],
-    ) -> Option<(SymbolKind, tree_sitter::Node<'a>, Option<tree_sitter::Node<'a>>, tree_sitter::Node<'a>)>
-    {
+        captures: &[(&str, tree_sitter::Node<'a>)],
+    ) -> Option<(
+        SymbolKind,
+        tree_sitter::Node<'a>,
+        Option<tree_sitter::Node<'a>>,
+        tree_sitter::Node<'a>,
+    )> {
         // Find the .def capture (the whole match) and the .name capture
         let def = captures.iter().find(|(name, _)| name.ends_with(".def"));
         let (def_prefix, def_node) = def?;
@@ -337,24 +352,19 @@ impl CodeParser {
         Some((kind, name_node, body_node, *def_node))
     }
 
-    fn build_signature(
-        &self,
-        def_node: &tree_sitter::Node,
-        body: &str,
-        source: &str,
-    ) -> String {
+    fn build_signature(&self, def_node: &tree_sitter::Node, body: &str, source: &str) -> String {
         let full_text = def_node
             .utf8_text(source.as_bytes())
             .unwrap_or_default()
             .to_string();
 
         // Signature = full text minus body
-        if !body.is_empty() {
-            if let Some(idx) = full_text.find(body) {
-                let sig = full_text[..idx].trim_end();
-                if !sig.is_empty() {
-                    return sig.to_string();
-                }
+        if !body.is_empty()
+            && let Some(idx) = full_text.find(body)
+        {
+            let sig = full_text[..idx].trim_end();
+            if !sig.is_empty() {
+                return sig.to_string();
             }
         }
         // Fallback: first line
@@ -421,8 +431,7 @@ impl CodeParser {
             }
             "typescript" | "javascript" => {
                 // JSDoc comment before node
-                let sibling = node.prev_sibling();
-                while let Some(s) = sibling {
+                if let Some(s) = node.prev_sibling() {
                     if s.kind() == "comment" {
                         let text = s.utf8_text(source.as_bytes()).ok()?;
                         if text.starts_with("/**") {
@@ -438,7 +447,6 @@ impl CodeParser {
                             );
                         }
                     }
-                    break;
                 }
                 None
             }
@@ -470,7 +478,7 @@ impl CodeParser {
         }
     }
 
-    fn compute_scope_hierarchy(&self, symbols: &mut Vec<Symbol>) {
+    fn compute_scope_hierarchy(&self, symbols: &mut [Symbol]) {
         // Sort by line range (outer first for containment check)
         let ids_and_ranges: Vec<(String, usize, usize, String)> = symbols
             .iter()
@@ -487,7 +495,10 @@ impl CodeParser {
                 }
                 if *pstart <= sym.line_start && *pend >= sym.line_end {
                     let range_size = pend - pstart;
-                    if best_parent.as_ref().is_none_or(|(_, best_size)| range_size < *best_size) {
+                    if best_parent
+                        .as_ref()
+                        .is_none_or(|(_, best_size)| range_size < *best_size)
+                    {
                         best_parent = Some((pid.clone(), range_size));
                     }
                 }
@@ -605,26 +616,25 @@ impl CodeParser {
                     _ => func_node.utf8_text(source.as_bytes()).ok(),
                 };
 
-                if let Some(callee) = callee_name {
-                    if let Some(callee_id) = name_to_id.get(callee) {
-                        if *callee_id != caller_id {
-                            let edge = Edge {
-                                from_id: caller_id.to_string(),
-                                to_id: callee_id.to_string(),
-                                kind: EdgeKind::Calls,
-                                file: file_path.to_string(),
-                                line: Some(node_line),
-                                confidence: 1.0,
-                            };
-                            // Dedup edges
-                            if !edges.iter().any(|e| {
-                                e.from_id == edge.from_id
-                                    && e.to_id == edge.to_id
-                                    && e.kind.as_str() == edge.kind.as_str()
-                            }) {
-                                edges.push(edge);
-                            }
-                        }
+                if let Some(callee) = callee_name
+                    && let Some(callee_id) = name_to_id.get(callee)
+                    && *callee_id != caller_id
+                {
+                    let edge = Edge {
+                        from_id: caller_id.to_string(),
+                        to_id: callee_id.to_string(),
+                        kind: EdgeKind::Calls,
+                        file: file_path.to_string(),
+                        line: Some(node_line),
+                        confidence: 1.0,
+                    };
+                    // Dedup edges
+                    if !edges.iter().any(|e| {
+                        e.from_id == edge.from_id
+                            && e.to_id == edge.to_id
+                            && e.kind.as_str() == edge.kind.as_str()
+                    }) {
+                        edges.push(edge);
                     }
                 }
             }
@@ -693,35 +703,29 @@ impl CodeParser {
                 let class_name = node
                     .child_by_field_name("name")
                     .and_then(|n| n.utf8_text(source.as_bytes()).ok());
-                if let Some(bases) = node.child_by_field_name("superclasses") {
-                    if let Some(class_name) = class_name {
-                        if let Some(class_id) = name_to_id.get(class_name) {
-                            let mut cursor = bases.walk();
-                            if cursor.goto_first_child() {
-                                loop {
-                                    let child = cursor.node();
-                                    if child.kind() == "identifier" {
-                                        if let Ok(base_name) =
-                                            child.utf8_text(source.as_bytes())
-                                        {
-                                            if let Some(base_id) = name_to_id.get(base_name) {
-                                                edges.push(Edge {
-                                                    from_id: class_id.to_string(),
-                                                    to_id: base_id.to_string(),
-                                                    kind: EdgeKind::Inherits,
-                                                    file: file_path.to_string(),
-                                                    line: Some(
-                                                        node.start_position().row + 1,
-                                                    ),
-                                                    confidence: 1.0,
-                                                });
-                                            }
-                                        }
-                                    }
-                                    if !cursor.goto_next_sibling() {
-                                        break;
-                                    }
-                                }
+                if let Some(bases) = node.child_by_field_name("superclasses")
+                    && let Some(class_name) = class_name
+                    && let Some(class_id) = name_to_id.get(class_name)
+                {
+                    let mut cursor = bases.walk();
+                    if cursor.goto_first_child() {
+                        loop {
+                            let child = cursor.node();
+                            if child.kind() == "identifier"
+                                && let Ok(base_name) = child.utf8_text(source.as_bytes())
+                                && let Some(base_id) = name_to_id.get(base_name)
+                            {
+                                edges.push(Edge {
+                                    from_id: class_id.to_string(),
+                                    to_id: base_id.to_string(),
+                                    kind: EdgeKind::Inherits,
+                                    file: file_path.to_string(),
+                                    line: Some(node.start_position().row + 1),
+                                    confidence: 1.0,
+                                });
+                            }
+                            if !cursor.goto_next_sibling() {
+                                break;
                             }
                         }
                     }
@@ -734,19 +738,18 @@ impl CodeParser {
                 if let (Some(trait_n), Some(type_n)) = (trait_node, type_node) {
                     let trait_name = trait_n.utf8_text(source.as_bytes()).ok();
                     let type_name = type_n.utf8_text(source.as_bytes()).ok();
-                    if let (Some(tn), Some(typ)) = (trait_name, type_name) {
-                        if let (Some(type_id), Some(trait_id)) =
+                    if let (Some(tn), Some(typ)) = (trait_name, type_name)
+                        && let (Some(type_id), Some(trait_id)) =
                             (name_to_id.get(typ), name_to_id.get(tn))
-                        {
-                            edges.push(Edge {
-                                from_id: type_id.to_string(),
-                                to_id: trait_id.to_string(),
-                                kind: EdgeKind::Implements,
-                                file: file_path.to_string(),
-                                line: Some(node.start_position().row + 1),
-                                confidence: 1.0,
-                            });
-                        }
+                    {
+                        edges.push(Edge {
+                            from_id: type_id.to_string(),
+                            to_id: trait_id.to_string(),
+                            kind: EdgeKind::Implements,
+                            file: file_path.to_string(),
+                            line: Some(node.start_position().row + 1),
+                            confidence: 1.0,
+                        });
                     }
                 }
             }
@@ -886,9 +889,10 @@ fn main_func() {
             .expect("parse failed");
 
         assert!(
-            result.edges.iter().any(|e| {
-                e.kind.as_str() == "CALLS" && e.confidence == 1.0
-            }),
+            result
+                .edges
+                .iter()
+                .any(|e| { e.kind.as_str() == "CALLS" && e.confidence == 1.0 }),
             "should find a CALLS edge"
         );
     }
@@ -898,12 +902,8 @@ fn main_func() {
         let parser = CodeParser::new();
         let source = r#"fn greet() { println!("hello"); }"#;
 
-        let r1 = parser
-            .parse_source(source, "rust", "a.rs")
-            .expect("parse");
-        let r2 = parser
-            .parse_source(source, "rust", "b.rs")
-            .expect("parse");
+        let r1 = parser.parse_source(source, "rust", "a.rs").expect("parse");
+        let r2 = parser.parse_source(source, "rust", "b.rs").expect("parse");
 
         // Same code in different files → different id, same canonical_id
         assert_ne!(r1.symbols[0].id, r2.symbols[0].id);

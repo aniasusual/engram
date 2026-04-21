@@ -60,7 +60,8 @@ pub fn detect_contradictions(store: &Store, symbol_id: &str) -> Result<Vec<Contr
             let content_b_lower = content_b.to_lowercase();
 
             for (word_a, word_b) in CONTRADICTION_PAIRS {
-                let conflict = (content_a_lower.contains(word_a) && content_b_lower.contains(word_b))
+                let conflict = (content_a_lower.contains(word_a)
+                    && content_b_lower.contains(word_b))
                     || (content_a_lower.contains(word_b) && content_b_lower.contains(word_a));
 
                 if conflict {
@@ -96,7 +97,7 @@ pub fn scan_all_contradictions(store: &Store) -> Result<usize> {
             store.create_insight(
                 "contradiction",
                 &contradiction.reason,
-                &[contradiction.symbol_id.clone()],
+                std::slice::from_ref(&contradiction.symbol_id),
             )?;
             total += 1;
         }
@@ -134,8 +135,22 @@ mod tests {
         let hash = &sym[0].full_hash;
 
         // Two contradicting annotations
-        store.create_annotation(sym_id, "explanation", "This function always returns true", hash).unwrap();
-        store.create_annotation(sym_id, "warning", "This function sometimes returns false", hash).unwrap();
+        store
+            .create_annotation(
+                sym_id,
+                "explanation",
+                "This function always returns true",
+                hash,
+            )
+            .unwrap();
+        store
+            .create_annotation(
+                sym_id,
+                "warning",
+                "This function sometimes returns false",
+                hash,
+            )
+            .unwrap();
 
         let contradictions = detect_contradictions(&store, sym_id).unwrap();
         assert!(
@@ -158,11 +173,18 @@ mod tests {
         let sym_id = &sym[0].id;
         let hash = &sym[0].full_hash;
 
-        store.create_annotation(sym_id, "explanation", "Processes input data", hash).unwrap();
-        store.create_annotation(sym_id, "context", "Called by the main handler", hash).unwrap();
+        store
+            .create_annotation(sym_id, "explanation", "Processes input data", hash)
+            .unwrap();
+        store
+            .create_annotation(sym_id, "context", "Called by the main handler", hash)
+            .unwrap();
 
         let contradictions = detect_contradictions(&store, sym_id).unwrap();
-        assert!(contradictions.is_empty(), "compatible annotations should not be flagged");
+        assert!(
+            contradictions.is_empty(),
+            "compatible annotations should not be flagged"
+        );
     }
 
     #[test]
@@ -176,7 +198,9 @@ mod tests {
         store.sync_file(Path::new("test.rs"), &result).unwrap();
 
         let sym = store.find_symbol_by_name("lonely").unwrap();
-        store.create_annotation(&sym[0].id, "explanation", "Does nothing", &sym[0].full_hash).unwrap();
+        store
+            .create_annotation(&sym[0].id, "explanation", "Does nothing", &sym[0].full_hash)
+            .unwrap();
 
         let contradictions = detect_contradictions(&store, &sym[0].id).unwrap();
         assert!(contradictions.is_empty());

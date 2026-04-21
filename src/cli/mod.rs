@@ -3,7 +3,10 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "engram", about = "Persistent codebase intelligence for coding agents")]
+#[command(
+    name = "engram",
+    about = "Persistent codebase intelligence for coding agents"
+)]
 pub struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -71,9 +74,7 @@ impl Cli {
                 let root = std::fs::canonicalize(&root)?;
                 let db_path = root.join(".engram/engram.db");
                 if !db_path.exists() {
-                    anyhow::bail!(
-                        "Engram not initialized. Run `engram init` first."
-                    );
+                    anyhow::bail!("Engram not initialized. Run `engram init` first.");
                 }
                 let store = std::sync::Arc::new(crate::graph::Store::open(&db_path)?);
 
@@ -102,7 +103,9 @@ impl Cli {
                     }
                     Err(e) => {
                         tracing::warn!("Embedding computation failed (non-fatal): {}", e);
-                        println!("Skipping embeddings (model download may be required on first run)");
+                        println!(
+                            "Skipping embeddings (model download may be required on first run)"
+                        );
                     }
                 }
 
@@ -126,7 +129,9 @@ impl Cli {
                         // Send SIGTERM on Unix
                         #[cfg(unix)]
                         {
-                            unsafe { libc::kill(pid, libc::SIGTERM); }
+                            unsafe {
+                                libc::kill(pid, libc::SIGTERM);
+                            }
                         }
                         std::fs::remove_file(&pid_file)?;
                         println!("Stopped Engram daemon (PID {})", pid);
@@ -154,22 +159,19 @@ impl Cli {
                 println!("  Files:   {}", stats.file_count);
                 Ok(())
             }
-            Command::Search {
-                query,
-                top_k,
-                root,
-            } => {
+            Command::Search { query, top_k, root } => {
                 let root = std::fs::canonicalize(&root)?;
                 let db_path = root.join(".engram/engram.db");
                 if !db_path.exists() {
-                    anyhow::bail!(
-                        "Engram not initialized. Run `engram init` first."
-                    );
+                    anyhow::bail!("Engram not initialized. Run `engram init` first.");
                 }
                 let store = crate::graph::Store::open(&db_path)?;
 
                 // Try hybrid search (vector + BM25 + graph via RRF)
-                let has_embeddings = store.get_all_embeddings().map(|e| !e.is_empty()).unwrap_or(false);
+                let has_embeddings = store
+                    .get_all_embeddings()
+                    .map(|e| !e.is_empty())
+                    .unwrap_or(false);
 
                 if has_embeddings {
                     // Full hybrid RRF search
@@ -190,7 +192,11 @@ impl Cli {
                                     if let Some(sym) = store.get_symbol(&result.symbol_id)? {
                                         println!(
                                             "  {:.4}  {} {} ({}:{})",
-                                            result.score, sym.kind, sym.name, sym.file, sym.line_start
+                                            result.score,
+                                            sym.kind,
+                                            sym.name,
+                                            sym.file,
+                                            sym.line_start
                                         );
                                     }
                                 }
@@ -211,9 +217,7 @@ impl Cli {
                 let root = std::fs::canonicalize(&root)?;
                 let db_path = root.join(".engram/engram.db");
                 if !db_path.exists() {
-                    anyhow::bail!(
-                        "Engram not initialized. Run `engram init` first."
-                    );
+                    anyhow::bail!("Engram not initialized. Run `engram init` first.");
                 }
                 let store = std::sync::Arc::new(crate::graph::Store::open(&db_path)?);
                 crate::mcp::run_mcp_server(store, root).await?;
@@ -225,8 +229,8 @@ impl Cli {
                 std::fs::create_dir_all(&claude_settings_dir)?;
 
                 let settings_path = claude_settings_dir.join("settings.local.json");
-                let engram_bin = std::env::current_exe()
-                    .unwrap_or_else(|_| std::path::PathBuf::from("engram"));
+                let engram_bin =
+                    std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("engram"));
 
                 let hooks_config = serde_json::json!({
                     "hooks": {
@@ -282,7 +286,8 @@ fn compute_embeddings(store: &crate::graph::Store) -> Result<usize> {
                 .filter_map(|(id, _)| store.get_symbol(id).ok().flatten().map(|s| s.name))
                 .collect();
 
-            let text = crate::embeddings::EmbeddingEngine::build_embedding_text(&sym, &callers, &deps);
+            let text =
+                crate::embeddings::EmbeddingEngine::build_embedding_text(&sym, &callers, &deps);
             texts.push(text);
             ids_and_hashes.push((symbol_id.clone(), body_hash.clone()));
         }

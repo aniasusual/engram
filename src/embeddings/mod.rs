@@ -67,10 +67,10 @@ impl EmbeddingEngine {
             parts.push(sym.signature.clone());
         }
 
-        if let Some(ref doc) = sym.docstring {
-            if !doc.is_empty() {
-                parts.push(doc.clone());
-            }
+        if let Some(ref doc) = sym.docstring
+            && !doc.is_empty()
+        {
+            parts.push(doc.clone());
         }
 
         if !callers.is_empty() {
@@ -102,10 +102,7 @@ impl EmbeddingEngine {
             .model
             .embed(vec![text], None)
             .context("embedding text")?;
-        results
-            .into_iter()
-            .next()
-            .context("empty embedding result")
+        results.into_iter().next().context("empty embedding result")
     }
 
     /// Compute cosine similarity between two vectors.
@@ -139,6 +136,12 @@ pub struct VectorIndex {
     vectors: HashMap<String, Vec<f32>>,
 }
 
+impl Default for VectorIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VectorIndex {
     pub fn new() -> Self {
         Self {
@@ -165,7 +168,12 @@ impl VectorIndex {
         let mut scores: Vec<(String, f32)> = self
             .vectors
             .iter()
-            .map(|(id, emb)| (id.clone(), EmbeddingEngine::cosine_similarity(query_embedding, emb)))
+            .map(|(id, emb)| {
+                (
+                    id.clone(),
+                    EmbeddingEngine::cosine_similarity(query_embedding, emb),
+                )
+            })
             .collect();
 
         scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -195,10 +203,7 @@ const RRF_K: f64 = 60.0;
 /// initial ranking, RRF is rank-based.
 ///
 /// RRF score: final_score(d) = Σ 1/(k + rank_i(d)) for each signal i
-pub fn rrf_fuse(
-    signals: &[Vec<(String, f64)>],
-    top_k: usize,
-) -> Vec<SearchResult> {
+pub fn rrf_fuse(signals: &[Vec<(String, f64)>], top_k: usize) -> Vec<SearchResult> {
     let mut rrf_scores: HashMap<String, f64> = HashMap::new();
 
     for signal in signals {
@@ -217,7 +222,11 @@ pub fn rrf_fuse(
         })
         .collect();
 
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results.truncate(top_k);
     results
 }
@@ -254,7 +263,8 @@ pub fn search_hybrid(
     let graph_results: Vec<(String, f64)> = match store.get_hot_symbols(over_fetch) {
         Ok(hot) if !hot.is_empty() => {
             // BFS outward from hot symbols, score by inverse distance
-            let mut graph_scores: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+            let mut graph_scores: std::collections::HashMap<String, f64> =
+                std::collections::HashMap::new();
             for (hot_id, importance) in &hot {
                 // Expand 2 hops from each hot symbol
                 if let Ok(neighbors) = store.find_callers(hot_id, 2) {
@@ -344,10 +354,7 @@ mod tests {
 
     #[test]
     fn test_rrf_single_signal() {
-        let signal = vec![
-            ("x".to_string(), 1.0),
-            ("y".to_string(), 0.5),
-        ];
+        let signal = vec![("x".to_string(), 1.0), ("y".to_string(), 0.5)];
         let results = rrf_fuse(&[signal], 2);
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].symbol_id, "x");

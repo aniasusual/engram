@@ -93,11 +93,7 @@ fn ndcg_at_k(ranked_relevances: &[f64], k: usize) -> f64 {
         .map(|(i, &rel)| (2f64.powf(rel) - 1.0) / (i as f64 + 2.0).log2())
         .sum();
 
-    if idcg == 0.0 {
-        0.0
-    } else {
-        dcg / idcg
-    }
+    if idcg == 0.0 { 0.0 } else { dcg / idcg }
 }
 
 #[test]
@@ -108,7 +104,9 @@ fn codesearchnet_evaluation() {
     if !Path::new(ann_path).exists() {
         println!("Annotations not found. Download with:");
         println!("  curl -sL -o data/codesearchnet/annotationStore.csv \\");
-        println!("    https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/annotationStore.csv");
+        println!(
+            "    https://raw.githubusercontent.com/github/CodeSearchNet/master/resources/annotationStore.csv"
+        );
         return;
     }
 
@@ -130,7 +128,9 @@ fn codesearchnet_evaluation() {
     if !test_dir.exists() {
         println!("Corpus not found at {}", test_dir.display());
         println!("Download and extract with:");
-        println!("  cd data/codesearchnet && curl -sLO https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2/python.zip && unzip python.zip");
+        println!(
+            "  cd data/codesearchnet && curl -sLO https://s3.amazonaws.com/code-search-net/CodeSearchNet/v2/python.zip && unzip python.zip"
+        );
         println!("  cd python/final/jsonl/test && gunzip *.gz");
         return;
     }
@@ -150,7 +150,10 @@ fn codesearchnet_evaluation() {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         if ext == "gz" {
-            println!("  Found .gz file — decompress first: gunzip {}", path.display());
+            println!(
+                "  Found .gz file — decompress first: gunzip {}",
+                path.display()
+            );
             continue;
         }
         if ext != "jsonl" {
@@ -171,20 +174,20 @@ fn codesearchnet_evaluation() {
 
                 let file_key = format!("{}_{}/{}", repo, indexed_files, filepath);
 
-                if let Ok(result) = parser.parse_source(code, "python", &file_key) {
-                    if store.sync_file(Path::new(&file_key), &result).is_ok() {
-                        indexed_files += 1;
-                        for sym in &result.symbols {
-                            indexed_symbols += 1;
-                            // Map the URL to this symbol for ground-truth matching
-                            if !url.is_empty() {
-                                url_to_symbol.insert(url.to_string(), sym.id.clone());
-                            }
-                            // Also map by func_name for fuzzy matching
-                            url_to_symbol
-                                .entry(func_name.to_string())
-                                .or_insert_with(|| sym.id.clone());
+                if let Ok(result) = parser.parse_source(code, "python", &file_key)
+                    && store.sync_file(Path::new(&file_key), &result).is_ok()
+                {
+                    indexed_files += 1;
+                    for sym in &result.symbols {
+                        indexed_symbols += 1;
+                        // Map the URL to this symbol for ground-truth matching
+                        if !url.is_empty() {
+                            url_to_symbol.insert(url.to_string(), sym.id.clone());
                         }
+                        // Also map by func_name for fuzzy matching
+                        url_to_symbol
+                            .entry(func_name.to_string())
+                            .or_insert_with(|| sym.id.clone());
                     }
                 }
             }
@@ -213,7 +216,7 @@ fn codesearchnet_evaluation() {
 
     let all_symbols = store.get_all_symbols().unwrap();
     let batch_size = 256;
-    let total_batches = (all_symbols.len() + batch_size - 1) / batch_size;
+    let total_batches = all_symbols.len().div_ceil(batch_size);
 
     for (batch_idx, chunk) in all_symbols.chunks(batch_size).enumerate() {
         let texts: Vec<String> = chunk
@@ -253,8 +256,7 @@ fn codesearchnet_evaluation() {
 
     for (query, ground_truth) in &queries_map {
         // Run hybrid search
-        let results =
-            search_hybrid(query, &store, &engine, &index, 10).unwrap_or_default();
+        let results = search_hybrid(query, &store, &engine, &index, 10).unwrap_or_default();
 
         // Map results to relevance scores using ground truth
         let mut ranked_relevances = Vec::new();
@@ -267,15 +269,16 @@ fn codesearchnet_evaluation() {
             if let Ok(Some(sym)) = store.get_symbol(&result.symbol_id) {
                 for (gt_url, gt_rel) in ground_truth {
                     // Match by URL in our mapping
-                    if let Some(gt_sym_id) = url_to_symbol.get(gt_url.as_str()) {
-                        if *gt_sym_id == result.symbol_id {
-                            rel = *gt_rel;
-                            break;
-                        }
+                    if let Some(gt_sym_id) = url_to_symbol.get(gt_url.as_str())
+                        && *gt_sym_id == result.symbol_id
+                    {
+                        rel = *gt_rel;
+                        break;
                     }
                     // Fuzzy match by function name
                     let url_key = extract_func_key(gt_url);
-                    if url_key.contains(&sym.name) || sym.name.len() > 3 && gt_url.contains(&sym.name)
+                    if url_key.contains(&sym.name)
+                        || sym.name.len() > 3 && gt_url.contains(&sym.name)
                     {
                         rel = *gt_rel;
                         break;
@@ -335,8 +338,10 @@ fn codesearchnet_evaluation() {
     }
 
     println!();
-    println!("  Embedding coverage: {}/{} symbols ({:.1}%)",
-        index.len(), all_symbols.len(),
+    println!(
+        "  Embedding coverage: {}/{} symbols ({:.1}%)",
+        index.len(),
+        all_symbols.len(),
         index.len() as f64 / all_symbols.len().max(1) as f64 * 100.0
     );
 }

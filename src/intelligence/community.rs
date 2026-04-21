@@ -50,12 +50,12 @@ pub fn detect_communities(store: &Store) -> Result<Vec<Community>> {
         // Get callers and callees
         if let Ok(callers) = store.get_direct_callers(&sym.id) {
             for caller_id in &callers {
-                if let Some(&to_idx) = id_to_idx.get(caller_id) {
-                    if from_idx != to_idx {
-                        adj[from_idx].insert(to_idx);
-                        adj[to_idx].insert(from_idx);
-                        total_edges += 1;
-                    }
+                if let Some(&to_idx) = id_to_idx.get(caller_id)
+                    && from_idx != to_idx
+                {
+                    adj[from_idx].insert(to_idx);
+                    adj[to_idx].insert(from_idx);
+                    total_edges += 1;
                 }
             }
         }
@@ -268,7 +268,10 @@ fn save_record() { query_db(); }
         store.sync_file(Path::new("test.rs"), &result).unwrap();
 
         let communities = detect_communities(&store).unwrap();
-        assert!(!communities.is_empty(), "should detect at least one community");
+        assert!(
+            !communities.is_empty(),
+            "should detect at least one community"
+        );
 
         // Total symbols across all communities should match
         let total: usize = communities.iter().map(|c| c.symbol_ids.len()).sum();
@@ -305,8 +308,11 @@ fn b() { a(); }
 
         let communities = detect_communities(&store).unwrap();
         for comm in &communities {
-            assert!(comm.cohesion >= 0.0 && comm.cohesion <= 1.0,
-                "cohesion should be between 0 and 1, got {}", comm.cohesion);
+            assert!(
+                comm.cohesion >= 0.0 && comm.cohesion <= 1.0,
+                "cohesion should be between 0 and 1, got {}",
+                comm.cohesion
+            );
         }
     }
 }

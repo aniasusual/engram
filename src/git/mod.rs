@@ -90,7 +90,11 @@ pub fn get_recent_commits(repo: &Repository, limit: usize) -> Result<Vec<SymbolC
 }
 
 /// Get commits that touched a specific file.
-pub fn get_file_commits(repo: &Repository, file_path: &str, limit: usize) -> Result<Vec<SymbolCommit>> {
+pub fn get_file_commits(
+    repo: &Repository,
+    file_path: &str,
+    limit: usize,
+) -> Result<Vec<SymbolCommit>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.push_head()?;
     revwalk.set_sorting(Sort::TIME)?;
@@ -110,8 +114,14 @@ pub fn get_file_commits(repo: &Repository, file_path: &str, limit: usize) -> Res
         let changed = if let Some(prev) = &prev_tree {
             let diff = repo.diff_tree_to_tree(Some(prev), Some(&tree), None)?;
             diff.deltas().any(|d| {
-                d.new_file().path().map(|p| p.to_string_lossy() == file_path).unwrap_or(false)
-                || d.old_file().path().map(|p| p.to_string_lossy() == file_path).unwrap_or(false)
+                d.new_file()
+                    .path()
+                    .map(|p| p.to_string_lossy() == file_path)
+                    .unwrap_or(false)
+                    || d.old_file()
+                        .path()
+                        .map(|p| p.to_string_lossy() == file_path)
+                        .unwrap_or(false)
             })
         } else {
             // First commit — check if file exists in tree
@@ -139,12 +149,14 @@ pub fn compute_ownership(blame_lines: &[BlameLine]) -> Vec<OwnershipEntry> {
     let mut ownership: HashMap<String, OwnershipEntry> = HashMap::new();
 
     for line in blame_lines {
-        let entry = ownership.entry(line.author.clone()).or_insert_with(|| OwnershipEntry {
-            author: line.author.clone(),
-            email: line.email.clone(),
-            commits: 0,
-            last_touched: 0,
-        });
+        let entry = ownership
+            .entry(line.author.clone())
+            .or_insert_with(|| OwnershipEntry {
+                author: line.author.clone(),
+                email: line.email.clone(),
+                commits: 0,
+                last_touched: 0,
+            });
         entry.commits += 1;
         if line.timestamp > entry.last_touched {
             entry.last_touched = line.timestamp;
@@ -196,10 +208,7 @@ pub fn sync_git_data(store: &Store, root: &Path) -> Result<()> {
 #[allow(dead_code)]
 pub fn current_branch(repo: &Repository) -> Result<String> {
     let head = repo.head()?;
-    Ok(head
-        .shorthand()
-        .unwrap_or("HEAD")
-        .to_string())
+    Ok(head.shorthand().unwrap_or("HEAD").to_string())
 }
 
 #[cfg(test)]
@@ -209,9 +218,30 @@ mod tests {
     #[test]
     fn test_compute_ownership() {
         let lines = vec![
-            BlameLine { line: 1, commit_hash: "aaa".into(), author: "Alice".into(), email: "a@x.com".into(), timestamp: 100, summary: String::new() },
-            BlameLine { line: 2, commit_hash: "aaa".into(), author: "Alice".into(), email: "a@x.com".into(), timestamp: 100, summary: String::new() },
-            BlameLine { line: 3, commit_hash: "bbb".into(), author: "Bob".into(), email: "b@x.com".into(), timestamp: 200, summary: String::new() },
+            BlameLine {
+                line: 1,
+                commit_hash: "aaa".into(),
+                author: "Alice".into(),
+                email: "a@x.com".into(),
+                timestamp: 100,
+                summary: String::new(),
+            },
+            BlameLine {
+                line: 2,
+                commit_hash: "aaa".into(),
+                author: "Alice".into(),
+                email: "a@x.com".into(),
+                timestamp: 100,
+                summary: String::new(),
+            },
+            BlameLine {
+                line: 3,
+                commit_hash: "bbb".into(),
+                author: "Bob".into(),
+                email: "b@x.com".into(),
+                timestamp: 200,
+                summary: String::new(),
+            },
         ];
 
         let ownership = compute_ownership(&lines);

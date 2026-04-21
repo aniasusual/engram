@@ -125,20 +125,22 @@ pub struct GetContextBatchParams {
 
 #[tool(tool_box)]
 impl EngramMcp {
-    #[tool(description = "Look up a symbol by name. Returns symbol details including kind, file, signature, scope chain, and docstring.")]
+    #[tool(
+        description = "Look up a symbol by name. Returns symbol details including kind, file, signature, scope chain, and docstring."
+    )]
     fn get_symbol(&self, #[tool(aggr)] params: GetSymbolParams) -> String {
         match self.store.find_symbol_by_name(&params.name) {
             Ok(symbols) if symbols.is_empty() => {
                 // Try BM25 fuzzy search as fallback
                 match self.store.search_bm25(&params.name, 5) {
                     Ok(results) if !results.is_empty() => {
-                        let mut output = format!("No exact match for '{}'. Similar symbols:\n", params.name);
+                        let mut output =
+                            format!("No exact match for '{}'. Similar symbols:\n", params.name);
                         for (id, _score) in &results {
                             if let Ok(Some(sym)) = self.store.get_symbol(id) {
                                 output.push_str(&format!(
                                     "  {} {} ({}:{}) — {}\n",
-                                    sym.kind, sym.name, sym.file, sym.line_start,
-                                    sym.signature
+                                    sym.kind, sym.name, sym.file, sym.line_start, sym.signature
                                 ));
                             }
                         }
@@ -148,10 +150,14 @@ impl EngramMcp {
                 }
             }
             Ok(symbols) => {
-                self.track(&symbols.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(), "view");
+                self.track(
+                    &symbols.iter().map(|s| s.id.as_str()).collect::<Vec<_>>(),
+                    "view",
+                );
                 let mut output = String::new();
                 for sym in &symbols {
-                    let scope: Vec<String> = serde_json::from_str(&sym.scope_chain).unwrap_or_default();
+                    let scope: Vec<String> =
+                        serde_json::from_str(&sym.scope_chain).unwrap_or_default();
                     output.push_str(&format!(
                         "{} {} ({}:{}–{})\n  signature: {}\n  scope: {}\n  docstring: {}\n  hash: {}\n\n",
                         sym.kind, sym.name, sym.file, sym.line_start, sym.line_end,
@@ -219,7 +225,10 @@ impl EngramMcp {
                     output.push_str(&format!("No dependencies found for {}\n", sym.name));
                 }
                 Ok(deps) => {
-                    output.push_str(&format!("Dependencies of {} (depth {}):\n", sym.name, depth));
+                    output.push_str(&format!(
+                        "Dependencies of {} (depth {}):\n",
+                        sym.name, depth
+                    ));
                     for (dep_id, dist) in &deps {
                         if let Ok(Some(dep)) = self.store.get_symbol(dep_id) {
                             output.push_str(&format!(
@@ -235,41 +244,60 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Search the codebase using hybrid RRF search (vector + BM25 + graph proximity). Falls back to BM25 if no embeddings are computed yet.")]
+    #[tool(
+        description = "Search the codebase using hybrid RRF search (vector + BM25 + graph proximity). Falls back to BM25 if no embeddings are computed yet."
+    )]
     fn search_semantic(&self, #[tool(aggr)] params: SearchSemanticParams) -> String {
         let top_k = params.top_k.unwrap_or(10);
 
         // Try hybrid search if embeddings exist
-        let has_embeddings = self.store.get_all_embeddings()
+        let has_embeddings = self
+            .store
+            .get_all_embeddings()
             .map(|e| !e.is_empty())
             .unwrap_or(false);
 
-        if has_embeddings {
-            if let Ok(engine) = crate::embeddings::EmbeddingEngine::new() {
-                let mut index = crate::embeddings::VectorIndex::new();
-                if index.load_from_store(&self.store).is_ok() && !index.is_empty() {
-                    match crate::embeddings::search_hybrid(
-                        &params.query, &self.store, &engine, &index, top_k,
-                    ) {
-                        Ok(results) if results.is_empty() => {
-                            return format!("No results found for '{}'", params.query);
-                        }
-                        Ok(results) => {
-                            self.track(&results.iter().map(|r| r.symbol_id.as_str()).collect::<Vec<_>>(), "query");
-                            let mut output = format!("Hybrid search results for '{}' (RRF: vector + BM25 + graph):\n", params.query);
-                            for result in &results {
-                                if let Ok(Some(sym)) = self.store.get_symbol(&result.symbol_id) {
-                                    output.push_str(&format!(
-                                        "  [{:.4}] {} {} ({}:{}) — {}\n",
-                                        result.score, sym.kind, sym.name, sym.file, sym.line_start,
-                                        sym.signature
-                                    ));
-                                }
-                            }
-                            return output;
-                        }
-                        Err(_) => {} // Fall through to BM25
+        if has_embeddings && let Ok(engine) = crate::embeddings::EmbeddingEngine::new() {
+            let mut index = crate::embeddings::VectorIndex::new();
+            if index.load_from_store(&self.store).is_ok() && !index.is_empty() {
+                match crate::embeddings::search_hybrid(
+                    &params.query,
+                    &self.store,
+                    &engine,
+                    &index,
+                    top_k,
+                ) {
+                    Ok(results) if results.is_empty() => {
+                        return format!("No results found for '{}'", params.query);
                     }
+                    Ok(results) => {
+                        self.track(
+                            &results
+                                .iter()
+                                .map(|r| r.symbol_id.as_str())
+                                .collect::<Vec<_>>(),
+                            "query",
+                        );
+                        let mut output = format!(
+                            "Hybrid search results for '{}' (RRF: vector + BM25 + graph):\n",
+                            params.query
+                        );
+                        for result in &results {
+                            if let Ok(Some(sym)) = self.store.get_symbol(&result.symbol_id) {
+                                output.push_str(&format!(
+                                    "  [{:.4}] {} {} ({}:{}) — {}\n",
+                                    result.score,
+                                    sym.kind,
+                                    sym.name,
+                                    sym.file,
+                                    sym.line_start,
+                                    sym.signature
+                                ));
+                            }
+                        }
+                        return output;
+                    }
+                    Err(_) => {} // Fall through to BM25
                 }
             }
         }
@@ -285,9 +313,7 @@ impl EngramMcp {
                     if let Ok(Some(sym)) = self.store.get_symbol(id) {
                         output.push_str(&format!(
                             "  [{:.3}] {} {} ({}:{}) — {}\n",
-                            -score,
-                            sym.kind, sym.name, sym.file, sym.line_start,
-                            sym.signature
+                            -score, sym.kind, sym.name, sym.file, sym.line_start, sym.signature
                         ));
                     }
                 }
@@ -297,7 +323,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get a summary of symbols in a file: functions, classes, complexity, and imports.")]
+    #[tool(
+        description = "Get a summary of symbols in a file: functions, classes, complexity, and imports."
+    )]
     fn get_file_summary(&self, #[tool(aggr)] params: GetFileSummaryParams) -> String {
         match self.store.get_file_symbols(&params.file) {
             Ok(symbols) if symbols.is_empty() => {
@@ -317,17 +345,16 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get a ~100-token project identity summary: language breakdown, module map, symbol count, recent activity.")]
+    #[tool(
+        description = "Get a ~100-token project identity summary: language breakdown, module map, symbol count, recent activity."
+    )]
     fn get_project_identity(&self) -> String {
         let stats = match self.store.stats() {
             Ok(s) => s,
             Err(e) => return format!("Error: {}", e),
         };
 
-        let lang_breakdown = match self.store.language_breakdown() {
-            Ok(b) => b,
-            Err(_) => vec![],
-        };
+        let lang_breakdown = self.store.language_breakdown().unwrap_or_default();
 
         let mut output = format!(
             "Project: {}\nSymbols: {} | Edges: {} | Files: {}\n",
@@ -350,7 +377,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Write a persistent annotation on a symbol. The annotation is hash-anchored — it will be marked stale if the symbol changes.")]
+    #[tool(
+        description = "Write a persistent annotation on a symbol. The annotation is hash-anchored — it will be marked stale if the symbol changes."
+    )]
     fn annotate_symbol(&self, #[tool(aggr)] params: AnnotateSymbolParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.symbol) {
             Ok(s) => s,
@@ -370,7 +399,9 @@ impl EngramMcp {
         ) {
             Ok(id) => format!(
                 "Annotation #{} created on {} (anchored to hash {})",
-                id, sym.name, &sym.full_hash[..12]
+                id,
+                sym.name,
+                &sym.full_hash[..12]
             ),
             Err(e) => format!("Error: {}", e),
         }
@@ -379,22 +410,36 @@ impl EngramMcp {
     #[tool(description = "Confirm an annotation is still correct. Resets its confidence to 1.0.")]
     fn verify_annotation(&self, #[tool(aggr)] params: AnnotationIdParams) -> String {
         match self.store.verify_annotation(params.annotation_id) {
-            Ok(()) => format!("Annotation #{} verified (confidence → 1.0)", params.annotation_id),
+            Ok(()) => format!(
+                "Annotation #{} verified (confidence → 1.0)",
+                params.annotation_id
+            ),
             Err(e) => format!("Error: {}", e),
         }
     }
 
-    #[tool(description = "Reduce confidence of an annotation. Use when an annotation seems wrong or outdated.")]
+    #[tool(
+        description = "Reduce confidence of an annotation. Use when an annotation seems wrong or outdated."
+    )]
     fn downvote_annotation(&self, #[tool(aggr)] params: AnnotationIdParams) -> String {
         match self.store.downvote_annotation(params.annotation_id) {
-            Ok(()) => format!("Annotation #{} downvoted (confidence reduced)", params.annotation_id),
+            Ok(()) => format!(
+                "Annotation #{} downvoted (confidence reduced)",
+                params.annotation_id
+            ),
             Err(e) => format!("Error: {}", e),
         }
     }
 
-    #[tool(description = "Record an architectural decision with rationale and rejected alternatives.")]
+    #[tool(
+        description = "Record an architectural decision with rationale and rejected alternatives."
+    )]
     fn record_decision(&self, #[tool(aggr)] params: RecordDecisionParams) -> String {
-        let symbol_names: Vec<String> = params.symbols.split(',').map(|s| s.trim().to_string()).collect();
+        let symbol_names: Vec<String> = params
+            .symbols
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect();
         let mut symbol_ids = Vec::new();
         for name in &symbol_names {
             if let Ok(syms) = self.store.find_symbol_by_name(name) {
@@ -417,24 +462,33 @@ impl EngramMcp {
 
     #[tool(description = "Record a recurring pattern observed in the codebase.")]
     fn record_pattern(&self, #[tool(aggr)] params: RecordPatternParams) -> String {
-        let symbol_ids: Vec<String> = params.symbols.as_deref().unwrap_or("")
+        let symbol_ids: Vec<String> = params
+            .symbols
+            .as_deref()
+            .unwrap_or("")
             .split(',')
             .filter(|s| !s.trim().is_empty())
             .flat_map(|name| {
-                self.store.find_symbol_by_name(name.trim())
+                self.store
+                    .find_symbol_by_name(name.trim())
                     .unwrap_or_default()
                     .into_iter()
                     .map(|s| s.id)
             })
             .collect();
 
-        match self.store.record_pattern(&params.name, &params.description, &symbol_ids) {
+        match self
+            .store
+            .record_pattern(&params.name, &params.description, &symbol_ids)
+        {
             Ok(id) => format!("Pattern #{} '{}' recorded", id, params.name),
             Err(e) => format!("Error: {}", e),
         }
     }
 
-    #[tool(description = "Get auto-generated insights: god nodes, complexity spikes, dead code, missing docs.")]
+    #[tool(
+        description = "Get auto-generated insights: god nodes, complexity spikes, dead code, missing docs."
+    )]
     fn get_insights(&self) -> String {
         // Generate fresh insights
         let _ = self.generate_insights();
@@ -446,7 +500,10 @@ impl EngramMcp {
                 for (id, itype, content, _sym_ids, confidence, _status) in &insights {
                     output.push_str(&format!(
                         "  #{} [{}] ({:.0}%) {}\n",
-                        id, itype, confidence * 100.0, content
+                        id,
+                        itype,
+                        confidence * 100.0,
+                        content
                     ));
                 }
                 output
@@ -468,7 +525,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get risk score for a symbol: (1+complexity) × (1+callers) × (1+stale_annotations).")]
+    #[tool(
+        description = "Get risk score for a symbol: (1+complexity) × (1+callers) × (1+stale_annotations)."
+    )]
     fn get_risk_score(&self, #[tool(aggr)] params: RiskScoreParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.symbol) {
             Ok(s) => s,
@@ -493,7 +552,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Get a codebase architecture report: language breakdown, top symbols by callers, module structure.")]
+    #[tool(
+        description = "Get a codebase architecture report: language breakdown, top symbols by callers, module structure."
+    )]
     fn get_codebase_report(&self) -> String {
         let stats = match self.store.stats() {
             Ok(s) => s,
@@ -516,9 +577,12 @@ impl EngramMcp {
 
         // Top symbols by caller count (god nodes)
         if let Ok(symbols) = self.store.get_all_symbols() {
-            let mut sym_callers: Vec<(&SymbolRow, usize)> = symbols.iter()
+            let mut sym_callers: Vec<(&SymbolRow, usize)> = symbols
+                .iter()
                 .filter_map(|s| {
-                    self.store.get_direct_callers(&s.id).ok()
+                    self.store
+                        .get_direct_callers(&s.id)
+                        .ok()
                         .map(|callers| (s, callers.len()))
                 })
                 .filter(|(_, count)| *count > 0)
@@ -528,7 +592,10 @@ impl EngramMcp {
             if !sym_callers.is_empty() {
                 output.push_str("Most-called symbols (god nodes):\n");
                 for (sym, count) in sym_callers.iter().take(10) {
-                    output.push_str(&format!("  {} callers — {} {} ({})\n", count, sym.kind, sym.name, sym.file));
+                    output.push_str(&format!(
+                        "  {} callers — {} {} ({})\n",
+                        count, sym.kind, sym.name, sym.file
+                    ));
                 }
                 output.push('\n');
             }
@@ -536,9 +603,12 @@ impl EngramMcp {
 
         // Stale annotations
         if let Ok(symbols) = self.store.get_all_symbols() {
-            let stale: Vec<_> = symbols.iter()
+            let stale: Vec<_> = symbols
+                .iter()
                 .filter_map(|s| {
-                    self.store.get_annotations(&s.id).ok()
+                    self.store
+                        .get_annotations(&s.id)
+                        .ok()
                         .map(|anns| (s, anns.iter().filter(|a| a.4 == "stale").count()))
                 })
                 .filter(|(_, count)| *count > 0)
@@ -547,7 +617,10 @@ impl EngramMcp {
             if !stale.is_empty() {
                 output.push_str("Symbols with stale annotations:\n");
                 for (sym, count) in &stale {
-                    output.push_str(&format!("  {} stale — {} {} ({})\n", count, sym.kind, sym.name, sym.file));
+                    output.push_str(&format!(
+                        "  {} stale — {} {} ({})\n",
+                        count, sym.kind, sym.name, sym.file
+                    ));
                 }
             }
         }
@@ -555,7 +628,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Get symbol context at a specific detail level. Tiers: brief (~80 tokens), standard (~500), full (~2500), deep (~5000).")]
+    #[tool(
+        description = "Get symbol context at a specific detail level. Tiers: brief (~80 tokens), standard (~500), full (~2500), deep (~5000)."
+    )]
     fn get_context(&self, #[tool(aggr)] params: GetContextParams) -> String {
         let tier = params.tier.as_deref().unwrap_or("standard");
         let symbols = match self.store.find_symbol_by_name(&params.symbol) {
@@ -569,15 +644,17 @@ impl EngramMcp {
         self.format_context(sym, tier)
     }
 
-    #[tool(description = "Get context for multiple symbols within a token budget. Greedy packing: starts brief, upgrades highest-attention first.")]
+    #[tool(
+        description = "Get context for multiple symbols within a token budget. Greedy packing: starts brief, upgrades highest-attention first."
+    )]
     fn get_context_batch(&self, #[tool(aggr)] params: GetContextBatchParams) -> String {
         let names: Vec<&str> = params.symbols.split(',').map(|s| s.trim()).collect();
         let mut all_syms = Vec::new();
         for name in &names {
-            if let Ok(syms) = self.store.find_symbol_by_name(name) {
-                if let Some(sym) = syms.into_iter().next() {
-                    all_syms.push(sym);
-                }
+            if let Ok(syms) = self.store.find_symbol_by_name(name)
+                && let Some(sym) = syms.into_iter().next()
+            {
+                all_syms.push(sym);
             }
         }
 
@@ -602,7 +679,9 @@ impl EngramMcp {
 
         // Upgrade pass: add standard details for symbols that fit
         for sym in &all_syms {
-            if budget_remaining < 100 { break; }
+            if budget_remaining < 100 {
+                break;
+            }
             let standard = self.format_context(sym, "standard");
             let est_tokens = standard.len() / 4;
             if est_tokens <= budget_remaining {
@@ -615,7 +694,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Get exploration coverage: which symbols have been accessed and which are blind spots (high-caller symbols never explored).")]
+    #[tool(
+        description = "Get exploration coverage: which symbols have been accessed and which are blind spots (high-caller symbols never explored)."
+    )]
     fn get_exploration_map(&self) -> String {
         match self.store.get_exploration_map() {
             Ok((explored, blind_spots)) => {
@@ -626,18 +707,29 @@ impl EngramMcp {
                     output.push_str(&format!("Explored ({} symbols):\n", explored.len()));
                     for (id, score) in explored.iter().take(15) {
                         if let Ok(Some(sym)) = self.store.get_symbol(id) {
-                            output.push_str(&format!("  [{:.0}] {} {} ({})\n",
-                                score, sym.kind, sym.name, sym.file));
+                            output.push_str(&format!(
+                                "  [{:.0}] {} {} ({})\n",
+                                score, sym.kind, sym.name, sym.file
+                            ));
                         }
                     }
                 }
                 if !blind_spots.is_empty() {
-                    output.push_str(&format!("\nBlind spots ({} high-caller symbols never explored):\n", blind_spots.len()));
+                    output.push_str(&format!(
+                        "\nBlind spots ({} high-caller symbols never explored):\n",
+                        blind_spots.len()
+                    ));
                     for id in &blind_spots {
                         if let Ok(Some(sym)) = self.store.get_symbol(id) {
-                            let callers = self.store.get_direct_callers(id).map(|c| c.len()).unwrap_or(0);
-                            output.push_str(&format!("  {} {} ({}) — {} callers\n",
-                                sym.kind, sym.name, sym.file, callers));
+                            let callers = self
+                                .store
+                                .get_direct_callers(id)
+                                .map(|c| c.len())
+                                .unwrap_or(0);
+                            output.push_str(&format!(
+                                "  {} {} ({}) — {} callers\n",
+                                sym.kind, sym.name, sym.file, callers
+                            ));
                         }
                     }
                 }
@@ -647,7 +739,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Suggest next symbols to explore based on call graph centrality and unexplored areas.")]
+    #[tool(
+        description = "Suggest next symbols to explore based on call graph centrality and unexplored areas."
+    )]
     fn suggest_next(&self) -> String {
         match self.store.suggest_next(10) {
             Ok(suggestions) if suggestions.is_empty() => {
@@ -657,9 +751,15 @@ impl EngramMcp {
                 let mut output = "Suggested next symbols to explore:\n".to_string();
                 for (id, name) in &suggestions {
                     if let Ok(Some(sym)) = self.store.get_symbol(id) {
-                        let callers = self.store.get_direct_callers(id).map(|c| c.len()).unwrap_or(0);
-                        output.push_str(&format!("  {} {} ({}) — {} callers\n",
-                            sym.kind, name, sym.file, callers));
+                        let callers = self
+                            .store
+                            .get_direct_callers(id)
+                            .map(|c| c.len())
+                            .unwrap_or(0);
+                        output.push_str(&format!(
+                            "  {} {} ({}) — {} callers\n",
+                            sym.kind, name, sym.file, callers
+                        ));
                     }
                 }
                 output
@@ -668,7 +768,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get git blame for a file: who wrote each line, when, and in which commit.")]
+    #[tool(
+        description = "Get git blame for a file: who wrote each line, when, and in which commit."
+    )]
     fn get_blame(&self, #[tool(aggr)] params: GetFileSummaryParams) -> String {
         let repo = match crate::git::open_repo(&self.root) {
             Ok(r) => r,
@@ -681,7 +783,10 @@ impl EngramMcp {
                 for line in lines.iter().take(50) {
                     output.push_str(&format!(
                         "  L{}: {} ({}) {}\n",
-                        line.line, line.author, &line.commit_hash[..7.min(line.commit_hash.len())], line.summary
+                        line.line,
+                        line.author,
+                        &line.commit_hash[..7.min(line.commit_hash.len())],
+                        line.summary
                     ));
                 }
                 if lines.len() > 50 {
@@ -693,7 +798,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get file ownership: who has contributed the most to a file based on git blame.")]
+    #[tool(
+        description = "Get file ownership: who has contributed the most to a file based on git blame."
+    )]
     fn get_ownership(&self, #[tool(aggr)] params: GetFileSummaryParams) -> String {
         match self.store.get_file_ownership(&params.file) {
             Ok(owners) if owners.is_empty() => {
@@ -720,7 +827,10 @@ impl EngramMcp {
             Ok(owners) => {
                 let mut output = format!("Ownership of {}:\n", params.file);
                 for (author, email, commits, _ts) in &owners {
-                    output.push_str(&format!("  {} ({}) — {} contributions\n", author, email, commits));
+                    output.push_str(&format!(
+                        "  {} ({}) — {} contributions\n",
+                        author, email, commits
+                    ));
                 }
                 output
             }
@@ -728,7 +838,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get git commit history for a symbol's file. Shows recent changes relevant to the symbol.")]
+    #[tool(
+        description = "Get git commit history for a symbol's file. Shows recent changes relevant to the symbol."
+    )]
     fn get_symbol_history(&self, #[tool(aggr)] params: GetSymbolParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.name) {
             Ok(s) => s,
@@ -756,7 +868,10 @@ impl EngramMcp {
                         .unwrap_or_default();
                     output.push_str(&format!(
                         "  {} {} — {} ({})\n",
-                        &c.hash[..7], date, c.message, c.author
+                        &c.hash[..7],
+                        date,
+                        c.message,
+                        c.author
                     ));
                 }
                 output
@@ -765,7 +880,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get symbol evolution timeline: how a symbol has changed over time, with annotation history.")]
+    #[tool(
+        description = "Get symbol evolution timeline: how a symbol has changed over time, with annotation history."
+    )]
     fn get_evolution(&self, #[tool(aggr)] params: GetSymbolParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.name) {
             Ok(s) => s,
@@ -778,7 +895,10 @@ impl EngramMcp {
 
         match self.store.get_symbol_evolution(&sym.id) {
             Ok(events) if events.is_empty() => {
-                format!("No evolution history for {} (symbol may not have changed since tracking started)", sym.name)
+                format!(
+                    "No evolution history for {} (symbol may not have changed since tracking started)",
+                    sym.name
+                )
             }
             Ok(events) => {
                 let mut output = format!("Evolution of {} {}:\n", sym.kind, sym.name);
@@ -790,15 +910,19 @@ impl EngramMcp {
                 }
 
                 // Also show annotations
-                if let Ok(anns) = self.store.get_annotations(&sym.id) {
-                    if !anns.is_empty() {
-                        output.push_str("\nAnnotations:\n");
-                        for (id, atype, content, conf, status) in &anns {
-                            output.push_str(&format!(
-                                "  #{} [{}] ({:.0}%, {}) {}\n",
-                                id, atype, conf * 100.0, status, content
-                            ));
-                        }
+                if let Ok(anns) = self.store.get_annotations(&sym.id)
+                    && !anns.is_empty()
+                {
+                    output.push_str("\nAnnotations:\n");
+                    for (id, atype, content, conf, status) in &anns {
+                        output.push_str(&format!(
+                            "  #{} [{}] ({:.0}%, {}) {}\n",
+                            id,
+                            atype,
+                            conf * 100.0,
+                            status,
+                            content
+                        ));
                     }
                 }
                 output
@@ -807,7 +931,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Get module-level context: symbols, health, community membership, and annotations for a directory.")]
+    #[tool(
+        description = "Get module-level context: symbols, health, community membership, and annotations for a directory."
+    )]
     fn get_module_context(&self, #[tool(aggr)] params: GetFileSummaryParams) -> String {
         // Get all symbols in files matching this path prefix
         let all_symbols = match self.store.get_all_symbols() {
@@ -827,7 +953,8 @@ impl EngramMcp {
         let mut output = format!("Module '{}' ({} symbols):\n", params.file, matching.len());
 
         // Symbols grouped by file
-        let mut by_file: std::collections::HashMap<&str, Vec<&SymbolRow>> = std::collections::HashMap::new();
+        let mut by_file: std::collections::HashMap<&str, Vec<&SymbolRow>> =
+            std::collections::HashMap::new();
         for sym in &matching {
             by_file.entry(&sym.file).or_default().push(sym);
         }
@@ -836,21 +963,33 @@ impl EngramMcp {
             output.push_str(&format!("\n  {}:\n", file));
             for sym in syms {
                 let risk = self.store.get_risk_score(&sym.id).unwrap_or(1.0);
-                output.push_str(&format!("    {} {} (L{}) risk={:.0}\n",
-                    sym.kind, sym.name, sym.line_start, risk));
+                output.push_str(&format!(
+                    "    {} {} (L{}) risk={:.0}\n",
+                    sym.kind, sym.name, sym.line_start, risk
+                ));
             }
         }
 
         // Community info if available
         if let Ok(communities) = crate::intelligence::community::detect_communities(&self.store) {
-            let relevant: Vec<_> = communities.iter()
-                .filter(|c| c.symbol_ids.iter().any(|id| matching.iter().any(|s| s.id == *id)))
+            let relevant: Vec<_> = communities
+                .iter()
+                .filter(|c| {
+                    c.symbol_ids
+                        .iter()
+                        .any(|id| matching.iter().any(|s| s.id == *id))
+                })
                 .collect();
             if !relevant.is_empty() {
                 output.push_str("\nCommunities:\n");
                 for comm in &relevant {
-                    output.push_str(&format!("  #{} '{}' ({} symbols, cohesion={:.2})\n",
-                        comm.id, comm.label, comm.symbol_ids.len(), comm.cohesion));
+                    output.push_str(&format!(
+                        "  #{} '{}' ({} symbols, cohesion={:.2})\n",
+                        comm.id,
+                        comm.label,
+                        comm.symbol_ids.len(),
+                        comm.cohesion
+                    ));
                 }
             }
         }
@@ -858,7 +997,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Find structurally and semantically similar code. Detects exact clones (same body) and near-clones (similar structure).")]
+    #[tool(
+        description = "Find structurally and semantically similar code. Detects exact clones (same body) and near-clones (similar structure)."
+    )]
     fn find_similar(&self, #[tool(aggr)] params: GetSymbolParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.name) {
             Ok(s) => s,
@@ -883,8 +1024,12 @@ impl EngramMcp {
                         };
                         output.push_str(&format!(
                             "  [{} {:.0}%] {} {} ({}:{})\n",
-                            kind, clone.similarity * 100.0,
-                            other.kind, other.name, other.file, other.line_start
+                            kind,
+                            clone.similarity * 100.0,
+                            other.kind,
+                            other.name,
+                            other.file,
+                            other.line_start
                         ));
                     }
                 }
@@ -894,7 +1039,9 @@ impl EngramMcp {
         }
     }
 
-    #[tool(description = "Analyze execution hot paths: which symbols are called most frequently and have the highest risk.")]
+    #[tool(
+        description = "Analyze execution hot paths: which symbols are called most frequently and have the highest risk."
+    )]
     fn get_hot_path(&self) -> String {
         let all_symbols = match self.store.get_all_symbols() {
             Ok(s) => s,
@@ -909,7 +1056,12 @@ impl EngramMcp {
                 if callers.is_empty() {
                     return None;
                 }
-                Some((sym.name.clone(), sym.kind.clone(), sym.file.clone(), risk * callers.len() as f64))
+                Some((
+                    sym.name.clone(),
+                    sym.kind.clone(),
+                    sym.file.clone(),
+                    risk * callers.len() as f64,
+                ))
             })
             .collect();
 
@@ -927,7 +1079,9 @@ impl EngramMcp {
         output
     }
 
-    #[tool(description = "Get runtime trace data. Currently shows static call graph analysis. Runtime tracers (Python/Node.js/Go) planned for future.")]
+    #[tool(
+        description = "Get runtime trace data. Currently shows static call graph analysis. Runtime tracers (Python/Node.js/Go) planned for future."
+    )]
     fn get_trace(&self, #[tool(aggr)] params: GetSymbolParams) -> String {
         let symbols = match self.store.find_symbol_by_name(&params.name) {
             Ok(s) => s,
@@ -945,7 +1099,10 @@ impl EngramMcp {
             output.push_str("  Called by:\n");
             for (id, depth) in &callers {
                 if let Ok(Some(s)) = self.store.get_symbol(id) {
-                    output.push_str(&format!("    [depth {}] {} {} ({})\n", depth, s.kind, s.name, s.file));
+                    output.push_str(&format!(
+                        "    [depth {}] {} {} ({})\n",
+                        depth, s.kind, s.name, s.file
+                    ));
                 }
             }
         }
@@ -953,7 +1110,10 @@ impl EngramMcp {
             output.push_str("  Calls:\n");
             for (id, depth) in &deps {
                 if let Ok(Some(s)) = self.store.get_symbol(id) {
-                    output.push_str(&format!("    [depth {}] {} {} ({})\n", depth, s.kind, s.name, s.file));
+                    output.push_str(&format!(
+                        "    [depth {}] {} {} ({})\n",
+                        depth, s.kind, s.name, s.file
+                    ));
                 }
             }
         }
@@ -1016,8 +1176,13 @@ impl EngramMcp {
             if callers.len() > 10 {
                 let _ = self.store.create_insight(
                     "god_node",
-                    &format!("{} {} has {} callers — high coupling risk", sym.kind, sym.name, callers.len()),
-                    &[sym.id.clone()],
+                    &format!(
+                        "{} {} has {} callers — high coupling risk",
+                        sym.kind,
+                        sym.name,
+                        callers.len()
+                    ),
+                    std::slice::from_ref(&sym.id),
                 );
             }
         }
@@ -1035,7 +1200,9 @@ impl EngramMcp {
             "brief" => {
                 // ~80 tokens: name, kind, file, signature, risk, warnings
                 let risk = self.store.get_risk_score(&sym.id).unwrap_or(1.0);
-                let stale = self.store.get_annotations(&sym.id)
+                let stale = self
+                    .store
+                    .get_annotations(&sym.id)
                     .map(|a| a.iter().filter(|x| x.4 == "stale").count())
                     .unwrap_or(0);
                 let mut out = format!(
@@ -1052,7 +1219,11 @@ impl EngramMcp {
                 // ~500 tokens: + callers, deps, annotations, scope
                 let mut out = format!(
                     "{} {} ({}:{}–{})\n  scope: {}\n  signature: {}\n",
-                    sym.kind, sym.name, sym.file, sym.line_start, sym.line_end,
+                    sym.kind,
+                    sym.name,
+                    sym.file,
+                    sym.line_start,
+                    sym.line_end,
                     scope.join(" > "),
                     sym.signature,
                 );
@@ -1060,21 +1231,31 @@ impl EngramMcp {
                     out.push_str(&format!("  docstring: {}\n", doc));
                 }
                 // Top 5 callers
-                if let Ok(callers) = self.store.find_callers(&sym.id, 1) {
-                    if !callers.is_empty() {
-                        out.push_str("  callers: ");
-                        let names: Vec<String> = callers.iter().take(5)
-                            .filter_map(|(id, _)| self.store.get_symbol(id).ok().flatten().map(|s| s.name))
-                            .collect();
-                        out.push_str(&names.join(", "));
-                        out.push('\n');
-                    }
+                if let Ok(callers) = self.store.find_callers(&sym.id, 1)
+                    && !callers.is_empty()
+                {
+                    out.push_str("  callers: ");
+                    let names: Vec<String> = callers
+                        .iter()
+                        .take(5)
+                        .filter_map(|(id, _)| {
+                            self.store.get_symbol(id).ok().flatten().map(|s| s.name)
+                        })
+                        .collect();
+                    out.push_str(&names.join(", "));
+                    out.push('\n');
                 }
                 // Annotations
                 if let Ok(anns) = self.store.get_annotations(&sym.id) {
                     for (id, atype, content, conf, status) in &anns {
-                        out.push_str(&format!("  annotation #{} [{}] ({:.0}%, {}) {}\n",
-                            id, atype, conf * 100.0, status, content));
+                        out.push_str(&format!(
+                            "  annotation #{} [{}] ({:.0}%, {}) {}\n",
+                            id,
+                            atype,
+                            conf * 100.0,
+                            status,
+                            content
+                        ));
                     }
                 }
                 out
@@ -1082,23 +1263,23 @@ impl EngramMcp {
             "full" => {
                 // Full: everything standard + all callers/deps
                 let mut out = self.format_context(sym, "standard");
-                if let Ok(callers) = self.store.find_callers(&sym.id, 3) {
-                    if !callers.is_empty() {
-                        out.push_str("  full caller graph:\n");
-                        for (id, depth) in &callers {
-                            if let Ok(Some(s)) = self.store.get_symbol(id) {
-                                out.push_str(&format!("    [depth {}] {} {}\n", depth, s.kind, s.name));
-                            }
+                if let Ok(callers) = self.store.find_callers(&sym.id, 3)
+                    && !callers.is_empty()
+                {
+                    out.push_str("  full caller graph:\n");
+                    for (id, depth) in &callers {
+                        if let Ok(Some(s)) = self.store.get_symbol(id) {
+                            out.push_str(&format!("    [depth {}] {} {}\n", depth, s.kind, s.name));
                         }
                     }
                 }
-                if let Ok(deps) = self.store.find_dependencies(&sym.id, 3) {
-                    if !deps.is_empty() {
-                        out.push_str("  dependencies:\n");
-                        for (id, depth) in &deps {
-                            if let Ok(Some(s)) = self.store.get_symbol(id) {
-                                out.push_str(&format!("    [depth {}] {} {}\n", depth, s.kind, s.name));
-                            }
+                if let Ok(deps) = self.store.find_dependencies(&sym.id, 3)
+                    && !deps.is_empty()
+                {
+                    out.push_str("  dependencies:\n");
+                    for (id, depth) in &deps {
+                        if let Ok(Some(s)) = self.store.get_symbol(id) {
+                            out.push_str(&format!("    [depth {}] {} {}\n", depth, s.kind, s.name));
                         }
                     }
                 }
@@ -1127,16 +1308,27 @@ impl EngramMcp {
 
                             // Append inline annotations after the code
                             if let Ok(anns) = self.store.get_annotations(&sym.id) {
-                                let active: Vec<_> = anns.iter()
-                                    .filter(|(_, _, _, _, status)| status == "active" || status == "stale")
+                                let active: Vec<_> = anns
+                                    .iter()
+                                    .filter(|(_, _, _, _, status)| {
+                                        status == "active" || status == "stale"
+                                    })
                                     .collect();
                                 if !active.is_empty() {
                                     out.push_str("  ── annotations ──\n");
                                     for (id, atype, content, conf, status) in &active {
-                                        let marker = if *status == "stale" { "STALE" } else { "active" };
+                                        let marker = if *status == "stale" {
+                                            "STALE"
+                                        } else {
+                                            "active"
+                                        };
                                         out.push_str(&format!(
                                             "  #{} [{}] ({:.0}%, {}) {}\n",
-                                            id, atype, conf * 100.0, marker, content
+                                            id,
+                                            atype,
+                                            conf * 100.0,
+                                            marker,
+                                            content
                                         ));
                                     }
                                 }

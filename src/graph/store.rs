@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::Path;
@@ -56,13 +56,17 @@ impl Store {
         conn.pragma_update(None, "synchronous", "NORMAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
 
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory().context("opening in-memory database")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     pub fn initialize(&self) -> Result<()> {
@@ -150,8 +154,8 @@ impl Store {
                 let is_value_type = matches!(
                     sym.kind,
                     crate::parser::SymbolKind::Constant
-                    | crate::parser::SymbolKind::Variable
-                    | crate::parser::SymbolKind::TypeAlias
+                        | crate::parser::SymbolKind::Variable
+                        | crate::parser::SymbolKind::TypeAlias
                 );
                 if is_value_type || is_short_body {
                     format!("{} {}", doc, sym.body)
@@ -327,9 +331,8 @@ impl Store {
                 results.push((current_id.clone(), current_depth));
             }
 
-            let mut stmt = conn.prepare(
-                "SELECT from_id FROM edges WHERE to_id = ?1 AND kind = 'CALLS'",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT from_id FROM edges WHERE to_id = ?1 AND kind = 'CALLS'")?;
             let callers: Vec<String> = stmt
                 .query_map(params![current_id], |row| row.get(0))?
                 .filter_map(|r| r.ok())
@@ -357,9 +360,8 @@ impl Store {
                 results.push((current_id.clone(), current_depth));
             }
 
-            let mut stmt = conn.prepare(
-                "SELECT to_id FROM edges WHERE from_id = ?1 AND kind = 'CALLS'",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT to_id FROM edges WHERE from_id = ?1 AND kind = 'CALLS'")?;
             let deps: Vec<String> = stmt
                 .query_map(params![current_id], |row| row.get(0))?
                 .filter_map(|r| r.ok())
@@ -405,12 +407,12 @@ impl Store {
     /// Get store statistics.
     pub fn stats(&self) -> Result<StoreStats> {
         let conn = self.conn.lock().unwrap();
-        let symbol_count: usize = conn
-            .query_row("SELECT COUNT(*) FROM symbols", [], |row| row.get(0))?;
-        let edge_count: usize = conn
-            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))?;
-        let file_count: usize = conn
-            .query_row("SELECT COUNT(*) FROM file_hashes", [], |row| row.get(0))?;
+        let symbol_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM symbols", [], |row| row.get(0))?;
+        let edge_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))?;
+        let file_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM file_hashes", [], |row| row.get(0))?;
         Ok(StoreStats {
             symbol_count,
             edge_count,
@@ -497,11 +499,13 @@ impl Store {
     // ── Embedding persistence ──────────────────────────────────────────
 
     /// Save an embedding to the database.
-    pub fn save_embedding(&self, symbol_id: &str, embedding: &[f32], body_hash: &str) -> Result<()> {
-        let blob: Vec<u8> = embedding
-            .iter()
-            .flat_map(|f| f.to_le_bytes())
-            .collect();
+    pub fn save_embedding(
+        &self,
+        symbol_id: &str,
+        embedding: &[f32],
+        body_hash: &str,
+    ) -> Result<()> {
+        let blob: Vec<u8> = embedding.iter().flat_map(|f| f.to_le_bytes()).collect();
 
         self.conn.lock().unwrap().execute(
             "INSERT OR REPLACE INTO embeddings (symbol_id, embedding, body_hash)
@@ -514,9 +518,7 @@ impl Store {
     /// Load all embeddings from the database.
     pub fn get_all_embeddings(&self) -> Result<Vec<(String, Vec<f32>)>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT symbol_id, embedding FROM embeddings",
-        )?;
+        let mut stmt = conn.prepare("SELECT symbol_id, embedding FROM embeddings")?;
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
             let blob: Vec<u8> = row.get(1)?;
@@ -544,7 +546,10 @@ impl Store {
     }
 
     /// Get annotations for a symbol.
-    pub fn get_annotations(&self, symbol_id: &str) -> Result<Vec<(i64, String, String, f64, String)>> {
+    pub fn get_annotations(
+        &self,
+        symbol_id: &str,
+    ) -> Result<Vec<(i64, String, String, f64, String)>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, annotation_type, content, confidence, status
@@ -567,9 +572,8 @@ impl Store {
     /// Get direct callers of a symbol (one hop only).
     pub fn get_direct_callers(&self, symbol_id: &str) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT from_id FROM edges WHERE to_id = ?1 AND kind = 'CALLS'",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT from_id FROM edges WHERE to_id = ?1 AND kind = 'CALLS'")?;
         let rows = stmt.query_map(rusqlite::params![symbol_id], |row| row.get(0))?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
@@ -590,7 +594,12 @@ impl Store {
     }
 
     /// Update annotation status and confidence.
-    pub fn update_annotation_status(&self, annotation_id: i64, status: &str, confidence: f64) -> Result<()> {
+    pub fn update_annotation_status(
+        &self,
+        annotation_id: i64,
+        status: &str,
+        confidence: f64,
+    ) -> Result<()> {
         let now = chrono::Utc::now().timestamp();
         self.conn.lock().unwrap().execute(
             "UPDATE annotations SET status = ?1, confidence = ?2, updated_at = ?3 WHERE id = ?4",
@@ -600,7 +609,11 @@ impl Store {
     }
 
     /// Reduce annotation confidence to a specific value.
-    pub fn reduce_annotation_confidence(&self, annotation_id: i64, new_confidence: f64) -> Result<()> {
+    pub fn reduce_annotation_confidence(
+        &self,
+        annotation_id: i64,
+        new_confidence: f64,
+    ) -> Result<()> {
         let now = chrono::Utc::now().timestamp();
         self.conn.lock().unwrap().execute(
             "UPDATE annotations SET confidence = ?1, updated_at = ?2 WHERE id = ?3",
@@ -610,7 +623,11 @@ impl Store {
     }
 
     /// Write a cascade log entry to the database.
-    pub fn write_cascade_log(&self, entry: &crate::memory::cascade::CascadeEntry, timestamp: i64) -> Result<()> {
+    pub fn write_cascade_log(
+        &self,
+        entry: &crate::memory::cascade::CascadeEntry,
+        timestamp: i64,
+    ) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT INTO cascade_log (trigger_symbol, affected_symbol, annotation_id, old_confidence, new_confidence, reason, timestamp)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -628,7 +645,10 @@ impl Store {
     }
 
     /// Get cascade log entries for a trigger symbol.
-    pub fn get_cascade_log(&self, trigger_symbol: &str) -> Result<Vec<(String, String, i64, f64, f64, String)>> {
+    pub fn get_cascade_log(
+        &self,
+        trigger_symbol: &str,
+    ) -> Result<Vec<(String, String, i64, f64, f64, String)>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT trigger_symbol, affected_symbol, annotation_id, old_confidence, new_confidence, reason
@@ -738,28 +758,35 @@ impl Store {
         let conn = self.conn.lock().unwrap();
 
         // Caller count
-        let caller_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM edges WHERE to_id = ?1 AND kind = 'CALLS'",
-            params![symbol_id],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let caller_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM edges WHERE to_id = ?1 AND kind = 'CALLS'",
+                params![symbol_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         // Stale annotation count
-        let stale_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM annotations WHERE symbol_id = ?1 AND status = 'stale'",
-            params![symbol_id],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let stale_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM annotations WHERE symbol_id = ?1 AND status = 'stale'",
+                params![symbol_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         // Complexity (stored in symbols table, default 0)
-        let complexity: i64 = conn.query_row(
-            "SELECT COALESCE(complexity, 0) FROM symbols WHERE id = ?1",
-            params![symbol_id],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let complexity: i64 = conn
+            .query_row(
+                "SELECT COALESCE(complexity, 0) FROM symbols WHERE id = ?1",
+                params![symbol_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         // Risk = (1 + complexity) × (1 + callers) × (1 + stale_annotations)
-        let risk = (1.0 + complexity as f64) * (1.0 + caller_count as f64) * (1.0 + stale_count as f64);
+        let risk =
+            (1.0 + complexity as f64) * (1.0 + caller_count as f64) * (1.0 + stale_count as f64);
         Ok(risk)
     }
 
@@ -775,9 +802,7 @@ impl Store {
     /// Get symbols for a topic.
     pub fn get_topic_symbols(&self, topic: &str) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT symbol_id FROM topics WHERE topic = ?1",
-        )?;
+        let mut stmt = conn.prepare("SELECT symbol_id FROM topics WHERE topic = ?1")?;
         let rows = stmt.query_map(params![topic], |row| row.get(0))?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
@@ -785,9 +810,8 @@ impl Store {
     /// Get all topics with their symbol counts.
     pub fn get_all_topics(&self) -> Result<Vec<(String, usize)>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT topic, COUNT(*) FROM topics GROUP BY topic ORDER BY COUNT(*) DESC",
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT topic, COUNT(*) FROM topics GROUP BY topic ORDER BY COUNT(*) DESC")?;
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?))
         })?;
@@ -875,7 +899,9 @@ impl Store {
              ORDER BY a.importance_score DESC",
         )?;
         let explored: Vec<(String, f64)> = stmt
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?)))?
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+            })?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -935,7 +961,14 @@ impl Store {
     // ── Git data persistence ─────────────────────────────────────────
 
     /// Upsert a git commit.
-    pub fn upsert_git_commit(&self, hash: &str, author: &str, email: &str, timestamp: i64, message: &str) -> Result<()> {
+    pub fn upsert_git_commit(
+        &self,
+        hash: &str,
+        author: &str,
+        email: &str,
+        timestamp: i64,
+        message: &str,
+    ) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT OR REPLACE INTO git_commits (hash, author, email, timestamp, message)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -945,7 +978,14 @@ impl Store {
     }
 
     /// Upsert file ownership.
-    pub fn upsert_file_ownership(&self, file: &str, author: &str, email: &str, commits: usize, last_touched: i64) -> Result<()> {
+    pub fn upsert_file_ownership(
+        &self,
+        file: &str,
+        author: &str,
+        email: &str,
+        commits: usize,
+        last_touched: i64,
+    ) -> Result<()> {
         self.conn.lock().unwrap().execute(
             "INSERT OR REPLACE INTO file_ownership (file, author, email, commits, last_touched)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -981,7 +1021,10 @@ impl Store {
     }
 
     /// Get commits for a file from git_commits.
-    pub fn get_file_commit_history(&self, _file: &str) -> Result<Vec<(String, String, i64, String)>> {
+    pub fn get_file_commit_history(
+        &self,
+        _file: &str,
+    ) -> Result<Vec<(String, String, i64, String)>> {
         // Returns recent commits. Full file-level filtering would use symbol_commits.
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -1032,7 +1075,10 @@ impl Store {
     }
 
     /// Get evolution history for a symbol.
-    pub fn get_symbol_evolution(&self, symbol_id: &str) -> Result<Vec<(String, i64, String, Option<String>, Option<String>)>> {
+    pub fn get_symbol_evolution(
+        &self,
+        symbol_id: &str,
+    ) -> Result<Vec<(String, i64, String, Option<String>, Option<String>)>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT change_type, timestamp, COALESCE(diff_summary, ''), old_full_hash, new_full_hash
@@ -1051,7 +1097,11 @@ impl Store {
     }
 
     /// Save branch context snapshot.
-    pub fn save_branch_context(&self, branch: &str, snapshot: &HashMap<String, String>) -> Result<()> {
+    pub fn save_branch_context(
+        &self,
+        branch: &str,
+        snapshot: &HashMap<String, String>,
+    ) -> Result<()> {
         let now = chrono::Utc::now().timestamp();
         let json = serde_json::to_string(snapshot)?;
         self.conn.lock().unwrap().execute(
@@ -1149,7 +1199,7 @@ fn top() { middle(); }
         assert!(!leaf.is_empty());
 
         let callers = store.find_callers(&leaf[0].id, 3).unwrap();
-        assert!(callers.len() >= 1, "leaf should have at least 1 caller");
+        assert!(!callers.is_empty(), "leaf should have at least 1 caller");
     }
 
     #[test]
@@ -1190,7 +1240,10 @@ fn process() {}
 
         // Search for the URL value in the constant body
         let url_results = store.search_bm25("api example", 5).unwrap();
-        assert!(!url_results.is_empty(), "should find API_URL by searching its value content");
+        assert!(
+            !url_results.is_empty(),
+            "should find API_URL by searching its value content"
+        );
     }
 
     #[test]
@@ -1206,6 +1259,9 @@ fn process() {}
         assert!(!results.is_empty(), "should find markdown content via FTS");
 
         let results2 = store.search_bm25("Bearer", 5).unwrap();
-        assert!(!results2.is_empty(), "should find 'Bearer' in markdown via FTS");
+        assert!(
+            !results2.is_empty(),
+            "should find 'Bearer' in markdown via FTS"
+        );
     }
 }

@@ -124,14 +124,21 @@ fn compute_mrr(results: &[(String, Vec<String>)], queries: &[GoldenQuery]) -> f6
 }
 
 /// Precision@k: of the top k results, how many are relevant?
-fn compute_precision_at_k(results: &[(String, Vec<String>)], queries: &[GoldenQuery], k: usize) -> f64 {
+fn compute_precision_at_k(
+    results: &[(String, Vec<String>)],
+    queries: &[GoldenQuery],
+    k: usize,
+) -> f64 {
     let mut sum = 0.0;
     let mut count = 0;
 
     for (i, (_, result_names)) in results.iter().enumerate() {
         let relevant = &queries[i].relevant;
         let top_k = &result_names[..result_names.len().min(k)];
-        let hits = top_k.iter().filter(|n| relevant.contains(&n.as_str())).count();
+        let hits = top_k
+            .iter()
+            .filter(|n| relevant.contains(&n.as_str()))
+            .count();
         sum += hits as f64 / k as f64;
         count += 1;
     }
@@ -140,15 +147,24 @@ fn compute_precision_at_k(results: &[(String, Vec<String>)], queries: &[GoldenQu
 }
 
 /// Recall@k: of all relevant results, how many are in the top k?
-fn compute_recall_at_k(results: &[(String, Vec<String>)], queries: &[GoldenQuery], k: usize) -> f64 {
+fn compute_recall_at_k(
+    results: &[(String, Vec<String>)],
+    queries: &[GoldenQuery],
+    k: usize,
+) -> f64 {
     let mut sum = 0.0;
     let mut count = 0;
 
     for (i, (_, result_names)) in results.iter().enumerate() {
         let relevant = &queries[i].relevant;
-        if relevant.is_empty() { continue; }
+        if relevant.is_empty() {
+            continue;
+        }
         let top_k = &result_names[..result_names.len().min(k)];
-        let hits = top_k.iter().filter(|n| relevant.contains(&n.as_str())).count();
+        let hits = top_k
+            .iter()
+            .filter(|n| relevant.contains(&n.as_str()))
+            .count();
         sum += hits as f64 / relevant.len() as f64;
         count += 1;
     }
@@ -214,12 +230,15 @@ fn engrambench_per_query_type_breakdown() {
     let store = setup_store();
     let results = run_bm25_queries(&store);
 
-    let mut type_hits: std::collections::HashMap<&str, (usize, usize)> = std::collections::HashMap::new();
+    let mut type_hits: std::collections::HashMap<&str, (usize, usize)> =
+        std::collections::HashMap::new();
 
     for (i, (_, names)) in results.iter().enumerate() {
         let relevant = GOLDEN_QUERIES[i].relevant;
         let hit = names.iter().any(|n| relevant.contains(&n.as_str()));
-        let entry = type_hits.entry(GOLDEN_QUERIES[i].query_type).or_insert((0, 0));
+        let entry = type_hits
+            .entry(GOLDEN_QUERIES[i].query_type)
+            .or_insert((0, 0));
         entry.1 += 1;
         if hit {
             entry.0 += 1;
@@ -228,7 +247,13 @@ fn engrambench_per_query_type_breakdown() {
 
     println!("\n=== Hit Rate by Query Type ===");
     for (qtype, (hits, total)) in &type_hits {
-        println!("  {}: {}/{} ({:.0}%)", qtype, hits, total, *hits as f64 / *total as f64 * 100.0);
+        println!(
+            "  {}: {}/{} ({:.0}%)",
+            qtype,
+            hits,
+            total,
+            *hits as f64 / *total as f64 * 100.0
+        );
     }
 }
 
@@ -265,7 +290,11 @@ fn engrambench_ablation_bm25_vs_name_lookup() {
     println!("  Name Lookup MRR: {:.3}", name_mrr);
     println!(
         "  Winner: {}",
-        if bm25_mrr > name_mrr { "BM25" } else { "Name Lookup" }
+        if bm25_mrr > name_mrr {
+            "BM25"
+        } else {
+            "Name Lookup"
+        }
     );
 
     // BM25 should beat or match exact name lookup on semantic queries
@@ -300,7 +329,7 @@ fn setup_store_with_embeddings() -> Option<(Store, EmbeddingEngine, VectorIndex)
             .filter_map(|(id, _)| store.get_symbol(id).ok().flatten().map(|s| s.name))
             .collect();
 
-        let text = EmbeddingEngine::build_embedding_text(&sym, &callers, &deps);
+        let text = EmbeddingEngine::build_embedding_text(sym, &callers, &deps);
         if let Ok(embedding) = engine.embed_one(&text) {
             let _ = store.save_embedding(&sym.id, &embedding, &sym.body_hash);
         }
@@ -313,15 +342,24 @@ fn setup_store_with_embeddings() -> Option<(Store, EmbeddingEngine, VectorIndex)
     Some((store, engine, index))
 }
 
-fn run_hybrid_queries(store: &Store, engine: &EmbeddingEngine, index: &VectorIndex) -> Vec<(String, Vec<String>)> {
+fn run_hybrid_queries(
+    store: &Store,
+    engine: &EmbeddingEngine,
+    index: &VectorIndex,
+) -> Vec<(String, Vec<String>)> {
     GOLDEN_QUERIES
         .iter()
         .map(|gq| {
-            let results = search_hybrid(gq.query, store, engine, index, 10)
-                .unwrap_or_default();
+            let results = search_hybrid(gq.query, store, engine, index, 10).unwrap_or_default();
             let names: Vec<String> = results
                 .iter()
-                .filter_map(|r| store.get_symbol(&r.symbol_id).ok().flatten().map(|s| s.name))
+                .filter_map(|r| {
+                    store
+                        .get_symbol(&r.symbol_id)
+                        .ok()
+                        .flatten()
+                        .map(|s| s.name)
+                })
                 .collect();
             (gq.query.to_string(), names)
         })
@@ -413,25 +451,52 @@ fn engrambench_full_ablation() {
         .map(|(i, _)| i)
         .collect();
 
-    let bm25_semantic_hits = semantic_idxs.iter()
-        .filter(|&&i| bm25_results[i].1.iter().any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str())))
+    let bm25_semantic_hits = semantic_idxs
+        .iter()
+        .filter(|&&i| {
+            bm25_results[i]
+                .1
+                .iter()
+                .any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str()))
+        })
         .count();
-    let vector_semantic_hits = semantic_idxs.iter()
-        .filter(|&&i| vector_results[i].1.iter().any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str())))
+    let vector_semantic_hits = semantic_idxs
+        .iter()
+        .filter(|&&i| {
+            vector_results[i]
+                .1
+                .iter()
+                .any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str()))
+        })
         .count();
-    let hybrid_semantic_hits = semantic_idxs.iter()
-        .filter(|&&i| hybrid_results[i].1.iter().any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str())))
+    let hybrid_semantic_hits = semantic_idxs
+        .iter()
+        .filter(|&&i| {
+            hybrid_results[i]
+                .1
+                .iter()
+                .any(|n| GOLDEN_QUERIES[i].relevant.contains(&n.as_str()))
+        })
         .count();
 
     println!("  Semantic query hit rate:");
     println!("    BM25:   {}/{}", bm25_semantic_hits, semantic_idxs.len());
-    println!("    Vector: {}/{}", vector_semantic_hits, semantic_idxs.len());
-    println!("    Hybrid: {}/{}", hybrid_semantic_hits, semantic_idxs.len());
+    println!(
+        "    Vector: {}/{}",
+        vector_semantic_hits,
+        semantic_idxs.len()
+    );
+    println!(
+        "    Hybrid: {}/{}",
+        hybrid_semantic_hits,
+        semantic_idxs.len()
+    );
 
     // Hybrid should beat or match the best single signal
     let best_single = bm25_mrr.max(vector_mrr);
     println!("\n  Best single signal: {:.3}", best_single);
-    println!("  Hybrid improvement: {:.3} ({:+.1}%)",
+    println!(
+        "  Hybrid improvement: {:.3} ({:+.1}%)",
         hybrid_mrr,
         (hybrid_mrr - best_single) / best_single * 100.0
     );

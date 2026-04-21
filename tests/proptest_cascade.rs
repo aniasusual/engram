@@ -96,10 +96,10 @@ fn setup_and_cascade(
     let new_symbols = store.get_all_symbols().unwrap();
     let mut results = Vec::new();
     let target_name = format!("fn_{}", mutate_idx);
-    if let Some(sym) = new_symbols.iter().find(|s| s.name == target_name) {
-        if let Ok(r) = cascade::run_cascade(&store, &sym.id) {
-            results.push(r);
-        }
+    if let Some(sym) = new_symbols.iter().find(|s| s.name == target_name)
+        && let Ok(r) = cascade::run_cascade(&store, &sym.id)
+    {
+        results.push(r);
     }
 
     (store, results)
@@ -223,7 +223,11 @@ fn cascade_stress_test_100_node_dag() {
     let (store, results) = setup_and_cascade(100, 0.15, 0.5, 0, 42);
 
     let stats = store.stats().unwrap();
-    assert!(stats.symbol_count >= 50, "should have many symbols, got {}", stats.symbol_count);
+    assert!(
+        stats.symbol_count >= 50,
+        "should have many symbols, got {}",
+        stats.symbol_count
+    );
 
     // Cascade should have processed without panic
     for result in &results {
@@ -240,7 +244,10 @@ fn cascade_single_node() {
     let (_, results) = setup_and_cascade(1, 0.0, 1.0, 0, 99);
     // Should complete without error; may or may not have log entries
     for result in &results {
-        assert!(result.transitive_affected_count == 0, "single node has no callers");
+        assert!(
+            result.transitive_affected_count == 0,
+            "single node has no callers"
+        );
     }
 }
 

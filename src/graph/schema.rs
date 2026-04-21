@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use anyhow::Result;
+use rusqlite::Connection;
 
 /// Create all tables for the Engram database.
 /// 22 tables across 7 layers as specified in the plan.
@@ -253,7 +253,7 @@ pub fn create_fts_table(conn: &Connection) -> Result<()> {
                 docstring,
                 scope_chain,
                 file
-            );"
+            );",
         )?;
     }
     Ok(())

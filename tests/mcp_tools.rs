@@ -79,7 +79,8 @@ fn tool_find_dependencies_forward() {
 
     let deps = store.find_dependencies(&syms[0].id, 3).unwrap();
     // handle_request calls validate_token, extract_user_id, get_user, format_response
-    let dep_names: Vec<String> = deps.iter()
+    let dep_names: Vec<String> = deps
+        .iter()
         .filter_map(|(id, _)| store.get_symbol(id).ok().flatten().map(|s| s.name))
         .collect();
 
@@ -95,22 +96,35 @@ fn tool_annotate_verify_downvote_cycle() {
     assert!(!syms.is_empty());
 
     // Create annotation
-    let ann_id = store.create_annotation(
-        &syms[0].id, "explanation", "validates JWT tokens", &syms[0].full_hash
-    ).unwrap();
+    let ann_id = store
+        .create_annotation(
+            &syms[0].id,
+            "explanation",
+            "validates JWT tokens",
+            &syms[0].full_hash,
+        )
+        .unwrap();
     assert!(ann_id > 0);
 
     // Verify — confidence should go to 1.0
     store.verify_annotation(ann_id).unwrap();
     let anns = store.get_annotations(&syms[0].id).unwrap();
     let verified = anns.iter().find(|(id, _, _, _, _)| *id == ann_id).unwrap();
-    assert!((verified.3 - 1.0).abs() < 1e-6, "verified confidence should be 1.0, got {}", verified.3);
+    assert!(
+        (verified.3 - 1.0).abs() < 1e-6,
+        "verified confidence should be 1.0, got {}",
+        verified.3
+    );
 
     // Downvote — confidence should decrease
     store.downvote_annotation(ann_id).unwrap();
     let anns2 = store.get_annotations(&syms[0].id).unwrap();
     let downvoted = anns2.iter().find(|(id, _, _, _, _)| *id == ann_id).unwrap();
-    assert!(downvoted.3 < 1.0, "downvoted confidence should be < 1.0, got {}", downvoted.3);
+    assert!(
+        downvoted.3 < 1.0,
+        "downvoted confidence should be < 1.0, got {}",
+        downvoted.3
+    );
 }
 
 #[test]
@@ -124,13 +138,24 @@ fn tool_get_context_tiers() {
     let full = mcp.format_context_pub(&syms[0], "full");
 
     assert!(!brief.is_empty(), "brief should not be empty");
-    assert!(standard.len() > brief.len(),
-        "standard ({}) should be longer than brief ({})", standard.len(), brief.len());
-    assert!(full.len() >= standard.len(),
-        "full ({}) should be >= standard ({})", full.len(), standard.len());
+    assert!(
+        standard.len() > brief.len(),
+        "standard ({}) should be longer than brief ({})",
+        standard.len(),
+        brief.len()
+    );
+    assert!(
+        full.len() >= standard.len(),
+        "full ({}) should be >= standard ({})",
+        full.len(),
+        standard.len()
+    );
 
     // Standard should contain signature and scope
-    assert!(standard.contains("validate_token"), "standard should mention symbol name");
+    assert!(
+        standard.contains("validate_token"),
+        "standard should mention symbol name"
+    );
     assert!(standard.contains("auth.rs"), "standard should mention file");
 }
 
@@ -162,12 +187,14 @@ fn tool_record_decision() {
     let syms = store.find_symbol_by_name("validate_token").unwrap();
     let ids: Vec<String> = syms.iter().map(|s| s.id.clone()).collect();
 
-    let dec_id = store.record_decision(
-        &ids,
-        "Use JWT for all token validation",
-        Some("JWTs are stateless and widely supported"),
-        Some("Session tokens: rejected due to server-side state requirements"),
-    ).unwrap();
+    let dec_id = store
+        .record_decision(
+            &ids,
+            "Use JWT for all token validation",
+            Some("JWTs are stateless and widely supported"),
+            Some("Session tokens: rejected due to server-side state requirements"),
+        )
+        .unwrap();
 
     assert!(dec_id > 0, "should create decision with valid ID");
 }
@@ -188,9 +215,16 @@ fn tool_attention_tracking() {
     assert!(!explored.is_empty(), "should have explored symbols");
 
     let our_sym = explored.iter().find(|(id, _)| *id == syms[0].id);
-    assert!(our_sym.is_some(), "validate_token should be in explored list");
+    assert!(
+        our_sym.is_some(),
+        "validate_token should be in explored list"
+    );
 
     // importance = views + 2*queries + 3*annotations = 2 + 2*1 + 0 = 4
     let (_, importance) = our_sym.unwrap();
-    assert!(*importance >= 4.0, "importance should be >= 4.0, got {}", importance);
+    assert!(
+        *importance >= 4.0,
+        "importance should be >= 4.0, got {}",
+        importance
+    );
 }

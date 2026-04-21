@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::path::Path;
 
 fn setup_indexed_store() -> engram::graph::Store {
@@ -54,9 +54,10 @@ fn bench_bm25_search_large(c: &mut Criterion) {
         return;
     }
 
-    c.bench_function(&format!("bm25_search_{}_symbols", stats.symbol_count), |b| {
-        b.iter(|| store.search_bm25("process validate service", 10).unwrap())
-    });
+    c.bench_function(
+        &format!("bm25_search_{}_symbols", stats.symbol_count),
+        |b| b.iter(|| store.search_bm25("process validate service", 10).unwrap()),
+    );
 }
 
 fn bench_find_callers(c: &mut Criterion) {
@@ -92,10 +93,15 @@ fn bench_cascade_propagation(c: &mut Criterion) {
     // Create annotations on multiple symbols
     let names = ["validate_token", "handle_request", "format_response"];
     for name in &names {
-        if let Ok(syms) = store.find_symbol_by_name(name) {
-            if let Some(sym) = syms.first() {
-                let _ = store.create_annotation(&sym.id, "explanation", &format!("{} does something", name), &sym.full_hash);
-            }
+        if let Ok(syms) = store.find_symbol_by_name(name)
+            && let Some(sym) = syms.first()
+        {
+            let _ = store.create_annotation(
+                &sym.id,
+                "explanation",
+                &format!("{} does something", name),
+                &sym.full_hash,
+            );
         }
     }
 
@@ -118,9 +124,7 @@ pub fn sanitize_input(input: &str) -> String {
     let sym_id = syms[0].id.clone();
 
     c.bench_function("cascade_propagation", |b| {
-        b.iter(|| {
-            engram::memory::cascade::run_cascade(&store, &sym_id).unwrap()
-        })
+        b.iter(|| engram::memory::cascade::run_cascade(&store, &sym_id).unwrap())
     });
 }
 
@@ -152,9 +156,7 @@ fn bench_embedding_text_generation(c: &mut Criterion) {
         .collect();
 
     c.bench_function("embedding_text_generation", |b| {
-        b.iter(|| {
-            engram::embeddings::EmbeddingEngine::build_embedding_text(sym, &callers, &[])
-        })
+        b.iter(|| engram::embeddings::EmbeddingEngine::build_embedding_text(sym, &callers, &[]))
     });
 }
 
@@ -165,14 +167,14 @@ fn bench_community_detection(c: &mut Criterion) {
         return;
     }
 
-    c.bench_function(&format!("community_detection_{}_symbols", stats.symbol_count), |b| {
-        b.iter(|| {
-            engram::intelligence::community::detect_communities(&store).unwrap()
-        })
-    });
+    c.bench_function(
+        &format!("community_detection_{}_symbols", stats.symbol_count),
+        |b| b.iter(|| engram::intelligence::community::detect_communities(&store).unwrap()),
+    );
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_bm25_search_small,
     bench_bm25_search_large,
     bench_find_callers,

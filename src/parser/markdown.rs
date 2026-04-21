@@ -30,7 +30,13 @@ pub fn parse_markdown(content: &str, file_path: &str) -> ParseResult {
     // Close last heading
     if let Some((name, _level, start)) = current_heading {
         let body = lines[start..].join("\n");
-        symbols.push(make_doc_symbol(&name, file_path, start + 1, lines.len(), &body));
+        symbols.push(make_doc_symbol(
+            &name,
+            file_path,
+            start + 1,
+            lines.len(),
+            &body,
+        ));
     }
 
     // If no headings found, treat the whole file as one document section
@@ -111,8 +117,16 @@ mod tests {
 
         let names: Vec<&str> = result.symbols.iter().map(|s| s.name.as_str()).collect();
         assert!(names.contains(&"Title"), "should find Title: {:?}", names);
-        assert!(names.contains(&"Section One"), "should find Section One: {:?}", names);
-        assert!(names.contains(&"Section Two"), "should find Section Two: {:?}", names);
+        assert!(
+            names.contains(&"Section One"),
+            "should find Section One: {:?}",
+            names
+        );
+        assert!(
+            names.contains(&"Section Two"),
+            "should find Section Two: {:?}",
+            names
+        );
     }
 
     #[test]
@@ -144,8 +158,10 @@ mod tests {
         let result = parse_markdown(content, "api.md");
 
         let sym = &result.symbols[0];
-        assert!(sym.docstring.as_ref().unwrap().contains("JWT tokens"),
-            "docstring should contain section content for FTS indexing");
+        assert!(
+            sym.docstring.as_ref().unwrap().contains("JWT tokens"),
+            "docstring should contain section content for FTS indexing"
+        );
         assert_eq!(sym.language, "markdown");
     }
 }

@@ -180,7 +180,10 @@ pub fn cascade_file(store: &Store, file: &str) -> Result<Vec<CascadeResult>> {
             // Also check if any callers have annotations
             let callers = store.get_direct_callers(&sym.id)?;
             let has_caller_annotations = callers.iter().any(|c| {
-                store.get_annotations(c).map(|a| !a.is_empty()).unwrap_or(false)
+                store
+                    .get_annotations(c)
+                    .map(|a| !a.is_empty())
+                    .unwrap_or(false)
             });
             if !has_caller_annotations {
                 continue;
@@ -228,13 +231,27 @@ fn caller() { callee(); }
         let callee = store.find_symbol_by_name("callee").unwrap();
         let callee_id = &callee[0].id;
         let callee_hash = &callee[0].full_hash;
-        store.create_annotation(callee_id, "explanation", "callee always returns true", callee_hash).unwrap();
+        store
+            .create_annotation(
+                callee_id,
+                "explanation",
+                "callee always returns true",
+                callee_hash,
+            )
+            .unwrap();
 
         // Annotate caller
         let caller = store.find_symbol_by_name("caller").unwrap();
         let caller_id = &caller[0].id;
         let caller_hash = &caller[0].full_hash;
-        store.create_annotation(caller_id, "context", "caller depends on callee", caller_hash).unwrap();
+        store
+            .create_annotation(
+                caller_id,
+                "context",
+                "caller depends on callee",
+                caller_hash,
+            )
+            .unwrap();
 
         // Now change callee
         let new_source = r#"
@@ -249,10 +266,16 @@ fn caller() { callee(); }
         let cascade = run_cascade(&store, &new_callee[0].id).unwrap();
 
         // callee's annotation should be stale
-        assert!(cascade.direct_stale_count >= 1, "callee annotation should be stale");
+        assert!(
+            cascade.direct_stale_count >= 1,
+            "callee annotation should be stale"
+        );
 
         // caller's annotation confidence should be reduced
-        assert!(cascade.transitive_affected_count >= 1, "caller annotation should be affected");
+        assert!(
+            cascade.transitive_affected_count >= 1,
+            "caller annotation should be affected"
+        );
 
         // Cascade log should be populated
         assert!(!cascade.log.is_empty(), "cascade log should not be empty");
@@ -276,7 +299,14 @@ fn top() -> i32 { middle() }
         for name in &["leaf", "middle", "top"] {
             let syms = store.find_symbol_by_name(name).unwrap();
             let sym = &syms[0];
-            store.create_annotation(&sym.id, "explanation", &format!("{} does something", name), &sym.full_hash).unwrap();
+            store
+                .create_annotation(
+                    &sym.id,
+                    "explanation",
+                    &format!("{} does something", name),
+                    &sym.full_hash,
+                )
+                .unwrap();
         }
 
         // Change leaf
@@ -311,7 +341,8 @@ fn top() -> i32 { middle() }
             assert!(
                 middle_reduction > top_reduction,
                 "middle should lose more confidence ({}) than top ({})",
-                middle_reduction, top_reduction
+                middle_reduction,
+                top_reduction
             );
         }
     }
@@ -333,7 +364,14 @@ fn top() -> bool { route_b() && route_c() }
 
         // Annotate top
         let top = store.find_symbol_by_name("top").unwrap();
-        store.create_annotation(&top[0].id, "context", "top combines routes", &top[0].full_hash).unwrap();
+        store
+            .create_annotation(
+                &top[0].id,
+                "context",
+                "top combines routes",
+                &top[0].full_hash,
+            )
+            .unwrap();
 
         // Change leaf
         let new_source = r#"
@@ -349,9 +387,13 @@ fn top() -> bool { route_b() && route_c() }
         let cascade = run_cascade(&store, &new_leaf[0].id).unwrap();
 
         // Top should only appear ONCE in cascade log (BFS visited set prevents double-counting)
-        let top_entries: Vec<_> = cascade.log.iter()
+        let top_entries: Vec<_> = cascade
+            .log
+            .iter()
             .filter(|e| {
-                store.get_symbol(&e.affected_symbol).ok()
+                store
+                    .get_symbol(&e.affected_symbol)
+                    .ok()
                     .flatten()
                     .map(|s| s.name == "top")
                     .unwrap_or(false)
@@ -371,29 +413,49 @@ fn top() -> bool { route_b() && route_c() }
         let parser = CodeParser::new();
 
         let original_source = r#"fn greet() { println!("hello"); }"#;
-        let result = parser.parse_source(original_source, "rust", "test.rs").unwrap();
+        let result = parser
+            .parse_source(original_source, "rust", "test.rs")
+            .unwrap();
         store.sync_file(Path::new("test.rs"), &result).unwrap();
 
         // Annotate
         let sym = store.find_symbol_by_name("greet").unwrap();
-        let _ann_id = store.create_annotation(&sym[0].id, "explanation", "greets the user", &sym[0].full_hash).unwrap();
+        let _ann_id = store
+            .create_annotation(
+                &sym[0].id,
+                "explanation",
+                "greets the user",
+                &sym[0].full_hash,
+            )
+            .unwrap();
 
         // Change the function
         let changed_source = r#"fn greet() { println!("goodbye"); }"#;
-        let changed_result = parser.parse_source(changed_source, "rust", "test.rs").unwrap();
-        store.sync_file(Path::new("test.rs"), &changed_result).unwrap();
+        let changed_result = parser
+            .parse_source(changed_source, "rust", "test.rs")
+            .unwrap();
+        store
+            .sync_file(Path::new("test.rs"), &changed_result)
+            .unwrap();
 
         let changed_sym = store.find_symbol_by_name("greet").unwrap();
         let cascade1 = run_cascade(&store, &changed_sym[0].id).unwrap();
         assert!(cascade1.direct_stale_count >= 1, "should detect staleness");
 
         // Revert to original
-        let reverted_result = parser.parse_source(original_source, "rust", "test.rs").unwrap();
-        store.sync_file(Path::new("test.rs"), &reverted_result).unwrap();
+        let reverted_result = parser
+            .parse_source(original_source, "rust", "test.rs")
+            .unwrap();
+        store
+            .sync_file(Path::new("test.rs"), &reverted_result)
+            .unwrap();
 
         let reverted_sym = store.find_symbol_by_name("greet").unwrap();
         let cascade2 = run_cascade(&store, &reverted_sym[0].id).unwrap();
-        assert!(cascade2.reactivated_count >= 1, "should reactivate annotation on revert");
+        assert!(
+            cascade2.reactivated_count >= 1,
+            "should reactivate annotation on revert"
+        );
     }
 
     #[test]
@@ -409,10 +471,24 @@ fn main_fn() -> i32 { helper() }
         store.sync_file(Path::new("test.rs"), &result).unwrap();
 
         let helper = store.find_symbol_by_name("helper").unwrap();
-        store.create_annotation(&helper[0].id, "explanation", "returns 1", &helper[0].full_hash).unwrap();
+        store
+            .create_annotation(
+                &helper[0].id,
+                "explanation",
+                "returns 1",
+                &helper[0].full_hash,
+            )
+            .unwrap();
 
         let main_fn = store.find_symbol_by_name("main_fn").unwrap();
-        store.create_annotation(&main_fn[0].id, "context", "uses helper", &main_fn[0].full_hash).unwrap();
+        store
+            .create_annotation(
+                &main_fn[0].id,
+                "context",
+                "uses helper",
+                &main_fn[0].full_hash,
+            )
+            .unwrap();
 
         // Change helper
         let new_source = r#"
@@ -435,8 +511,11 @@ fn main_fn() -> i32 { helper() }
 
         // Database cascade_log should match
         let db_log = store.get_cascade_log(&new_helper[0].id).unwrap();
-        assert_eq!(db_log.len(), cascade.log.len(),
-            "database cascade_log should match in-memory log");
+        assert_eq!(
+            db_log.len(),
+            cascade.log.len(),
+            "database cascade_log should match in-memory log"
+        );
     }
 
     #[test]
@@ -471,7 +550,14 @@ fn caller() { leaf(); }
 
         let caller = store.find_symbol_by_name("caller").unwrap();
         // Create annotation with very low confidence
-        store.create_annotation(&caller[0].id, "context", "low confidence note", &caller[0].full_hash).unwrap();
+        store
+            .create_annotation(
+                &caller[0].id,
+                "context",
+                "low confidence note",
+                &caller[0].full_hash,
+            )
+            .unwrap();
         // Downvote it multiple times to get confidence near 0
         let anns = store.get_annotations(&caller[0].id).unwrap();
         for _ in 0..10 {

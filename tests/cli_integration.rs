@@ -1,5 +1,4 @@
 use assert_cmd::Command;
-use predicates::prelude::*;
 use tempfile::TempDir;
 
 #[test]
@@ -105,15 +104,22 @@ fn test_engram_install_hooks() {
         .success()
         .stdout(predicates::str::contains("hooks installed"));
 
-    assert!(dir.path().join(".claude").join("settings.local.json").exists());
+    assert!(
+        dir.path()
+            .join(".claude")
+            .join("settings.local.json")
+            .exists()
+    );
 
     // Verify the JSON is valid
-    let json_content = std::fs::read_to_string(
-        dir.path().join(".claude").join("settings.local.json")
-    ).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json_content)
-        .expect("hooks JSON should be valid");
-    assert!(parsed["hooks"]["PreToolUse"].is_array(), "should have PreToolUse hooks");
+    let json_content =
+        std::fs::read_to_string(dir.path().join(".claude").join("settings.local.json")).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_content).expect("hooks JSON should be valid");
+    assert!(
+        parsed["hooks"]["PreToolUse"].is_array(),
+        "should have PreToolUse hooks"
+    );
 }
 
 #[test]
@@ -121,7 +127,8 @@ fn test_engram_search_on_indexed_repo() {
     let dir = TempDir::new().unwrap();
 
     // Init
-    Command::cargo_bin("engram").unwrap()
+    Command::cargo_bin("engram")
+        .unwrap()
         .args(["init", "--root", dir.path().to_str().unwrap()])
         .assert()
         .success();
@@ -135,11 +142,14 @@ fn test_engram_search_on_indexed_repo() {
     std::fs::write(dir.path().join("auth.rs"), &fixture).unwrap();
 
     let result = parser.parse_source(&fixture, "rust", "auth.rs").unwrap();
-    store.sync_file(std::path::Path::new("auth.rs"), &result).unwrap();
+    store
+        .sync_file(std::path::Path::new("auth.rs"), &result)
+        .unwrap();
     drop(store); // Release DB lock
 
     // Now search should find results
-    Command::cargo_bin("engram").unwrap()
+    Command::cargo_bin("engram")
+        .unwrap()
         .args(["search", "validate", "--root", dir.path().to_str().unwrap()])
         .assert()
         .success()

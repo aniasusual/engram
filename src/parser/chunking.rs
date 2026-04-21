@@ -1,6 +1,6 @@
+use super::treesitter::Symbol;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use super::treesitter::Symbol;
 
 /// Maximum non-whitespace characters per chunk before splitting.
 const MAX_NWS_CHARS: usize = 500;
@@ -109,7 +109,7 @@ fn is_boundary(line: &str) -> bool {
         || trimmed.ends_with(':')
         || trimmed.is_empty()
         // Python: lines at indentation level 0 or 1 (def, class, return, etc.)
-        || (line.len() > 0 && !line.starts_with("    ") && !line.starts_with('\t'))
+        || (!line.is_empty() && !line.starts_with("    ") && !line.starts_with('\t'))
 }
 
 fn make_chunk(

@@ -49,12 +49,14 @@ fn context_tiers_increase_in_size() {
     assert!(
         standard.len() > brief.len(),
         "standard ({}) should be longer than brief ({})",
-        standard.len(), brief.len()
+        standard.len(),
+        brief.len()
     );
     assert!(
         full.len() >= standard.len(),
         "full ({}) should be >= standard ({})",
-        full.len(), standard.len()
+        full.len(),
+        standard.len()
     );
 }
 
@@ -75,13 +77,13 @@ fn context_batch_respects_budget() {
         let mut total_tokens = 0usize;
 
         for name in sym_names {
-            if let Ok(syms) = mcp.store.find_symbol_by_name(name) {
-                if let Some(sym) = syms.first() {
-                    let brief = mcp.format_context_pub(sym, "brief");
-                    let tokens = estimate_tokens(&brief);
-                    if total_tokens + tokens <= budget {
-                        total_tokens += tokens;
-                    }
+            if let Ok(syms) = mcp.store.find_symbol_by_name(name)
+                && let Some(sym) = syms.first()
+            {
+                let brief = mcp.format_context_pub(sym, "brief");
+                let tokens = estimate_tokens(&brief);
+                if total_tokens + tokens <= budget {
+                    total_tokens += tokens;
                 }
             }
         }
@@ -90,7 +92,8 @@ fn context_batch_respects_budget() {
         assert!(
             total_tokens <= budget,
             "budget={}: used {} tokens, should not exceed",
-            budget, total_tokens
+            budget,
+            total_tokens
         );
 
         // With enough budget, we should pack at least something
@@ -129,7 +132,7 @@ fn rrf_k_parameter_sweep() {
     ];
 
     let k_values = [10.0, 30.0, 60.0, 100.0];
-    let mut prev_top: Option<String> = None;
+    let mut _prev_top: Option<String> = None;
 
     println!("\n=== RRF k-parameter sweep ===");
     for k in k_values {
@@ -146,9 +149,15 @@ fn rrf_k_parameter_sweep() {
         ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         let top = &ranked[0].0;
-        println!("  k={:3.0}: top={}, scores={:?}",
-            k, top,
-            ranked.iter().map(|(id, s)| format!("{}={:.4}", id, s)).collect::<Vec<_>>().join(", ")
+        println!(
+            "  k={:3.0}: top={}, scores={:?}",
+            k,
+            top,
+            ranked
+                .iter()
+                .map(|(id, s)| format!("{}={:.4}", id, s))
+                .collect::<Vec<_>>()
+                .join(", ")
         );
 
         // All scores should be positive
@@ -159,13 +168,16 @@ fn rrf_k_parameter_sweep() {
         // All symbols should appear
         assert_eq!(ranked.len(), 5, "k={}: all 5 symbols should appear", k);
 
-        prev_top = Some(top.clone());
+        _prev_top = Some(top.clone());
     }
 
     // With the default k=60, test via the actual rrf_fuse function
     let fused = rrf_fuse(&[signal1, signal2], 5);
     assert_eq!(fused.len(), 5, "should return all 5 symbols");
-    assert!(fused[0].score > fused[4].score, "first should score higher than last");
+    assert!(
+        fused[0].score > fused[4].score,
+        "first should score higher than last"
+    );
 }
 
 // ── Token efficiency metric ───────────────────────────────────────────
@@ -176,22 +188,27 @@ fn token_efficiency_above_threshold() {
     let mcp = EngramMcp::new(Arc::new(store), PathBuf::from("."));
 
     let budget = 500;
-    let sym_names = ["validate_token", "get_user", "format_response", "handle_request"];
+    let sym_names = [
+        "validate_token",
+        "get_user",
+        "format_response",
+        "handle_request",
+    ];
 
     let mut total_useful = 0usize;
     let mut total_output = 0usize;
 
     for name in sym_names {
-        if let Ok(syms) = mcp.store.find_symbol_by_name(name) {
-            if let Some(sym) = syms.first() {
-                let text = mcp.format_context_pub(sym, "brief");
-                let tokens = estimate_tokens(&text);
-                if total_output + tokens <= budget {
-                    total_output += tokens;
-                    // "Useful" = has actual content (name, file, signature)
-                    if text.contains(&sym.name) {
-                        total_useful += tokens;
-                    }
+        if let Ok(syms) = mcp.store.find_symbol_by_name(name)
+            && let Some(sym) = syms.first()
+        {
+            let text = mcp.format_context_pub(sym, "brief");
+            let tokens = estimate_tokens(&text);
+            if total_output + tokens <= budget {
+                total_output += tokens;
+                // "Useful" = has actual content (name, file, signature)
+                if text.contains(&sym.name) {
+                    total_useful += tokens;
                 }
             }
         }
@@ -199,11 +216,16 @@ fn token_efficiency_above_threshold() {
 
     if total_output > 0 {
         let efficiency = total_useful as f64 / total_output as f64;
-        println!("Token efficiency: {}/{} = {:.2}", total_useful, total_output, efficiency);
+        println!(
+            "Token efficiency: {}/{} = {:.2}",
+            total_useful, total_output, efficiency
+        );
         assert!(
             efficiency >= 0.7,
             "token efficiency should be >= 0.7, got {:.2} ({}/{})",
-            efficiency, total_useful, total_output
+            efficiency,
+            total_useful,
+            total_output
         );
     }
 }

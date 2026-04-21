@@ -1,12 +1,18 @@
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    clippy::type_complexity,
+    clippy::too_many_arguments,
+    clippy::collapsible_if,
+    clippy::single_match
+)]
 
 mod cli;
 mod embeddings;
 mod git;
 mod graph;
 mod intelligence;
-mod memory;
 mod mcp;
+mod memory;
 mod parser;
 mod temporal;
 mod watcher;
