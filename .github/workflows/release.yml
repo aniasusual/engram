@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,9 +18,15 @@ jobs:
           - target: aarch64-apple-darwin
             os: macos-latest
             name: engram-macos-arm64
+            ext: ""
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             name: engram-linux-x86_64
+            ext: ""
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: engram-windows-x86_64
+            ext: ".exe"
 
     steps:
       - uses: actions/checkout@v4
@@ -36,17 +42,32 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
           tar czf ../../../${{ matrix.name }}.tar.gz engram
           cd ../../..
 
-      - name: Upload artifact
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path target/${{ matrix.target }}/release/engram.exe -DestinationPath ${{ matrix.name }}.zip
+
+      - name: Upload artifact (Unix)
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}.tar.gz
+
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}.zip
 
   release:
     name: Create Release
@@ -64,4 +85,5 @@ jobs:
           files: |
             engram-macos-arm64/engram-macos-arm64.tar.gz
             engram-linux-x86_64/engram-linux-x86_64.tar.gz
+            engram-windows-x86_64/engram-windows-x86_64.zip
           generate_release_notes: true

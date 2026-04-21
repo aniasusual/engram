@@ -125,13 +125,20 @@ impl Cli {
                 let pid_file = std::path::PathBuf::from(".engram/engram.pid");
                 if pid_file.exists() {
                     let pid_str = std::fs::read_to_string(&pid_file)?;
-                    if let Ok(pid) = pid_str.trim().parse::<i32>() {
+                    if let Ok(pid) = pid_str.trim().parse::<u32>() {
                         // Send SIGTERM on Unix
                         #[cfg(unix)]
                         {
                             unsafe {
-                                libc::kill(pid, libc::SIGTERM);
+                                libc::kill(pid as i32, libc::SIGTERM);
                             }
+                        }
+                        // Terminate process on Windows
+                        #[cfg(windows)]
+                        {
+                            let _ = std::process::Command::new("taskkill")
+                                .args(["/PID", &pid.to_string(), "/F"])
+                                .output();
                         }
                         std::fs::remove_file(&pid_file)?;
                         println!("Stopped Engram daemon (PID {})", pid);
